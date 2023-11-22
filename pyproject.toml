@@ -1,0 +1,76 @@
+[tool.poetry]
+name = "applepy"
+version = "0.1.0"
+description = ""
+authors = ["Cypheriel <61402923+Cypheriel@users.noreply.github.com>"]
+license = "GPL-3.0"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.group.dev.dependencies]
+black = "^23.9.1"
+bandit = "^1.7.5"
+pre-commit = "^3.4.0"
+tomli = "^2.0.1"
+isort = "^5.12.0"
+ruff = "^0.0.292"
+pyright = "^1.1.330.post0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+line-length = 120
+select = [
+    "F",
+    "W",
+    "E",
+    "C90",
+    "I",
+    "N",
+    "D",
+    "UP",
+    "ANN",
+    "ASYNC",
+    "S",
+    "BLE",
+    "B",
+    "A",
+    "COM",
+    "C4",
+    "ISC",
+    "ICN",
+    # "G",
+    "INP",
+    "PIE",
+    "T20",
+    "PYI",
+    "Q",
+    "RET",
+    "SLF",
+    "SIM",
+    "ARG",
+    "ERA",
+    "PGH",
+    "PL",
+    "PERF",
+    "FURB",
+    "LOG",
+    "RUF",
+]
+ignore = [
+    "D203",  # 1 blank line required before class docstring
+    "D212",  # Multi-line docstring summary should start at the first line
+    "S101",  # Use of assert detected.
+]
+fixable = ["ALL"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

@@ -2,12 +2,12 @@ import logging
 from os import getenv
 from socket import AF_INET, SOCK_STREAM, socket
 from sys import gettrace
-from tempfile import TemporaryFile
+from tempfile import NamedTemporaryFile
 
 from rich.console import Console
 from rich.logging import RichHandler
 
-log_file = TemporaryFile(delete=False)
+log_file = NamedTemporaryFile(delete=False)
 logger = logging.getLogger(__name__)
 
 file_handler = logging.FileHandler(log_file.name)

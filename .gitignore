@@ -1,3 +1,9 @@
+applepy/albert/crypto_assets/*
+!applepy/albert/crypto_assets/fairplay.key
+!applepy/albert/crypto_assets/fairplay-chain.crt
+
+applepy/ids/credentials/*
+
 ### MonoDevelop template
 #User Specific
 *.userprefs

@@ -1,0 +1,18 @@
+from importlib import resources
+
+IDS_ROOT = resources.files(__package__)
+
+CREDENTIALS_DIR = IDS_ROOT / "credentials"
+
+AUTH_KEY_PATH = CREDENTIALS_DIR / "auth.key"
+AUTH_CERT_PATH = CREDENTIALS_DIR / "auth.crt"
+AUTH_CSR_PATH = CREDENTIALS_DIR / "auth.csr"
+PUSH_KEY_PATH = CREDENTIALS_DIR / "push.key"
+PUSH_CERT_PATH = CREDENTIALS_DIR / "push.crt"
+ENCRYPTION_KEY_PATH = CREDENTIALS_DIR / "encryption.key"
+ENCRYPTION_PUBLIC_KEY_PATH = CREDENTIALS_DIR / "encryption.pub"
+SIGNING_KEY_PATH = CREDENTIALS_DIR / "signing.key"
+SIGNING_PUBLIC_KEY_PATH = CREDENTIALS_DIR / "signing.pub"
+REGISTRATION_CERT_PATH = CREDENTIALS_DIR / "registration.crt"
+IDS_DOTENV = CREDENTIALS_DIR / ".env"
+PROTOCOL_VERSION = "1640"

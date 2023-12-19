@@ -70,13 +70,13 @@ def _create_identity_key() -> bytes:
 
 # noinspection SpellCheckingInspection
 def register(
-        profile_id: str,
-        push_key: RSAPrivateKey,
-        push_cert: Certificate,
-        auth_key: RSAPrivateKey,
-        auth_cert: Certificate,
-        push_token: bytes,
-        handles: list[dict[Literal["uri"], str]],
+    profile_id: str,
+    push_key: RSAPrivateKey,
+    push_cert: Certificate,
+    auth_key: RSAPrivateKey,
+    auth_cert: Certificate,
+    push_token: bytes,
+    handles: list[dict[Literal["uri"], str]],
 ):
     if registration_certificate := read_certificate(REGISTRATION_CERT_PATH):
         logger.info("Using existing registration certificate")

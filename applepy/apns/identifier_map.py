@@ -166,3 +166,10 @@ MAP = {
         },
     },
 }
+
+
+def _get_name(command_id: int) -> str:
+    try:
+        return MAP[command_id]["name"]
+    except KeyError:
+        return f"UNKNOWN(0x{command_id:02x})"

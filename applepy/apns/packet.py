@@ -4,7 +4,7 @@ from io import BytesIO
 from logging import getLogger
 from socket import socket
 
-from applepy.apns.identifier_map import MAP
+from applepy.apns.identifier_map import MAP, _get_name
 
 logger = getLogger(__name__)
 
@@ -54,6 +54,10 @@ class APNSMessage:
     command_id: int
     items: list[APNSItem]
 
+    @property
+    def name(self):
+        return _get_name(self.command_id)
+
     def __post_init__(self) -> None:
         for item in self.items:
             item.command_id = self.command_id
@@ -68,7 +72,7 @@ class APNSMessage:
         while payload.tell() < payload_length:
             items.append(APNSItem.read(payload, command_id))
 
-        debug_message = f"[red]Received[/] packet [yellow]{MAP[command_id]['name']}[/] ({command_id}):\n"
+        debug_message = f"[red]Received[/] packet [yellow]{_get_name(command_id)}[/] ({command_id}):\n"
         for item in items:
             debug_message += f"    {item.name}: {item.value}\n"
         logger.debug(debug_message)
@@ -78,7 +82,7 @@ class APNSMessage:
     def write(self, stream: socket):
         stream.send(bytes(self))
 
-        debug_message = f"[cyan]Sending[/] packet [yellow]{MAP[self.command_id]['name']}[/] ({self.command_id}):"
+        debug_message = f"[cyan]Sending[/] packet [yellow]{self.name}[/] ({self.command_id}):"
 
         for item in self.items:
             debug_message += f"\n    {item.name}: {item.value}"
@@ -101,3 +105,6 @@ class APNSMessage:
     def __bytes__(self) -> bytes:
         payload = b"".join(bytes(item) for item in self.items)
         return self.command_id.to_bytes(1, "big") + len(payload).to_bytes(4, "big") + payload
+
+
+print(APNSMessage(0x00, []).name)

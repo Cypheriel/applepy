@@ -11,7 +11,7 @@ from applepy.apns.manager import APNSManager
 from applepy.bags import apns_bag, ids_bag
 from applepy.ids.auth import auth_device, auth_user, get_handles
 from applepy.ids.registration import register
-from applepy.logging import setup_logging, log_file, upload_log, file_handler
+from applepy.init_logging import setup_logging, log_file, upload_log, file_handler
 
 setup_logging()
 logger = getLogger("applepy")

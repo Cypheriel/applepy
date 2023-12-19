@@ -3,7 +3,7 @@ name = "applepy"
 version = "0.1.0"
 description = ""
 authors = ["Cypheriel <61402923+Cypheriel@users.noreply.github.com>"]
-license = "GPL-3.0"
+license = "AGPL-3.0-or-later"
 readme = "README.md"
 
 [tool.poetry.dependencies]

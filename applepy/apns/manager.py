@@ -6,6 +6,7 @@ import time
 from hashlib import sha1
 from logging import getLogger
 from random import randbytes, randint
+from typing import Final
 
 from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
@@ -22,15 +23,15 @@ from applepy.ids.payload import generate_id_headers
 from applepy.status_codes import StatusCode
 
 # noinspection SpellCheckingInspection
-COURIER_ID = randint(1, apns_bag.get("APNSCourierHostcount", 50))
-COURIER_HOSTNAME = apns_bag.get(f"APNSCourierHostname", "courier.push.apple.com")
-COURIER_HOST = f"{COURIER_ID:02}-{COURIER_HOSTNAME}"
-COURIER_PORT = 5223
+COURIER_ID: Final = randint(1, apns_bag.get("APNSCourierHostcount", 50))
+COURIER_HOSTNAME: Final = apns_bag.get(f"APNSCourierHostname", "courier.push.apple.com")
+COURIER_HOST: Final = f"{COURIER_ID:02}-{COURIER_HOSTNAME}"
+COURIER_PORT: Final = 5223
 
-ALPN_PROTOCOL = ("apns-security-v3",)
+ALPN_PROTOCOL: Final = ("apns-security-v3",)
 
-QUERY_KEY = "id-query"
-QUERY_URL = ids_bag[QUERY_KEY]
+QUERY_KEY: Final = "id-query"
+QUERY_URL: Final = ids_bag[QUERY_KEY]
 
 logger = getLogger(__name__)
 

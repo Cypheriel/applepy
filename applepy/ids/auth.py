@@ -4,7 +4,7 @@ from functools import partial
 from logging import getLogger
 from os import getenv
 from random import randbytes
-from typing import Literal
+from typing import Literal, Final
 
 import requests
 import urllib3
@@ -28,14 +28,14 @@ from applepy.ids import AUTH_CERT_PATH, AUTH_KEY_PATH, IDS_DOTENV, PROTOCOL_VERS
 from applepy.ids.payload import generate_auth_headers
 from applepy.status_codes import StatusCode
 
-AUTHENTICATE_USER_KEY = "vc-profile-authenticate"
-AUTHENTICATE_USER_URL = ids_bag[AUTHENTICATE_USER_KEY]
+AUTHENTICATE_USER_KEY: Final = "vc-profile-authenticate"
+AUTHENTICATE_USER_URL: Final = ids_bag[AUTHENTICATE_USER_KEY]
 
-AUTHENTICATE_DEVICE_KEY = "id-authenticate-ds-id"
-AUTHENTICATE_DEVICE_URL = ids_bag[AUTHENTICATE_DEVICE_KEY]
+AUTHENTICATE_DEVICE_KEY: Final = "id-authenticate-ds-id"
+AUTHENTICATE_DEVICE_URL: Final = ids_bag[AUTHENTICATE_DEVICE_KEY]
 
-GET_HANDLES_KEY = "id-get-handles"
-GET_HANDLES_URL = ids_bag[GET_HANDLES_KEY]
+GET_HANDLES_KEY: Final = "id-get-handles"
+GET_HANDLES_URL: Final = ids_bag[GET_HANDLES_KEY]
 
 load_dotenv(IDS_DOTENV)
 

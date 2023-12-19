@@ -2,6 +2,7 @@ import plistlib
 import re
 from importlib import resources
 from logging import getLogger
+from typing import Final
 from uuid import uuid4
 
 import requests
@@ -28,15 +29,15 @@ from applepy.crypto_helper import (
     save_csr,
 )
 
-ALBERT_ROOT = resources.files(__package__)
+ALBERT_ROOT: Final = resources.files(__package__)
 
-CRYPTO_ASSETS_DIR = ALBERT_ROOT / "crypto_assets"
+CRYPTO_ASSETS_DIR: Final = ALBERT_ROOT / "crypto_assets"
 
-FAIRPLAY_PRIVATE_KEY = read_private_key(CRYPTO_ASSETS_DIR / "fairplay.key")
-FAIRPLAY_CERT_CHAIN = (CRYPTO_ASSETS_DIR / "fairplay-chain.crt").read_bytes()
-DEVICE_KEY_PATH = CRYPTO_ASSETS_DIR / "device.key"
-DEVICE_CSR_PATH = CRYPTO_ASSETS_DIR / "device.csr"
-DEVICE_CERTIFICATE_PATH = CRYPTO_ASSETS_DIR / "device.crt"
+FAIRPLAY_PRIVATE_KEY: Final = read_private_key(CRYPTO_ASSETS_DIR / "fairplay.key")
+FAIRPLAY_CERT_CHAIN: Final = (CRYPTO_ASSETS_DIR / "fairplay-chain.crt").read_bytes()
+DEVICE_KEY_PATH: Final = CRYPTO_ASSETS_DIR / "device.key"
+DEVICE_CSR_PATH: Final = CRYPTO_ASSETS_DIR / "device.csr"
+DEVICE_CERTIFICATE_PATH: Final = CRYPTO_ASSETS_DIR / "device.crt"
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -67,12 +68,12 @@ def _generate_device_csr(private_key: RSAPrivateKey) -> CertificateSigningReques
     return csr
 
 
-UID = str(uuid4())
-ACTIVATION_URL = "https://albert.apple.com/deviceservices/deviceActivation?device=MacOS"
-PRIVATE_KEY = read_private_key(DEVICE_KEY_PATH) or create_private_key(DEVICE_KEY_PATH)
-CSR = read_csr(DEVICE_CSR_PATH) or _generate_device_csr(PRIVATE_KEY)
+UID: Final = str(uuid4())
+ACTIVATION_URL: Final = "https://albert.apple.com/deviceservices/deviceActivation?device=MacOS"
+PRIVATE_KEY: Final = read_private_key(DEVICE_KEY_PATH) or create_private_key(DEVICE_KEY_PATH)
+CSR: Final = read_csr(DEVICE_CSR_PATH) or _generate_device_csr(PRIVATE_KEY)
 # noinspection SpellCheckingInspection
-ACTIVATION_INFO_PAYLOAD = {
+ACTIVATION_INFO_PAYLOAD: Final = {
     "ActivationRandomness": str(uuid4()),
     "ActivationState": "Unactivated",
     "BuildVersion": "23C64",

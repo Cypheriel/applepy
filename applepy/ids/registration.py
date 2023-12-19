@@ -3,7 +3,7 @@ import random
 from base64 import b64decode
 from logging import getLogger
 from string import ascii_lowercase
-from typing import Literal
+from typing import Literal, Final
 from uuid import UUID
 
 import requests
@@ -33,10 +33,10 @@ from applepy.ids.auth import IDSAuthenticationResponseError
 from applepy.ids.payload import generate_auth_headers
 from applepy.status_codes import StatusCode
 
-REGISTER_KEY = "id-register"
-REGISTER_URL = ids_bag[REGISTER_KEY]
+REGISTER_KEY: Final = "id-register"
+REGISTER_URL: Final[str] = ids_bag[REGISTER_KEY]
 
-VALIDATION_URL = "https://validation-data.fly.dev/generate"
+VALIDATION_URL: Final = "https://validation-data.fly.dev/generate"
 
 logger = getLogger(__name__)
 
@@ -70,13 +70,13 @@ def _create_identity_key() -> bytes:
 
 # noinspection SpellCheckingInspection
 def register(
-    profile_id: str,
-    push_key: RSAPrivateKey,
-    push_cert: Certificate,
-    auth_key: RSAPrivateKey,
-    auth_cert: Certificate,
-    push_token: bytes,
-    handles: list[dict[Literal["uri"], str]],
+        profile_id: str,
+        push_key: RSAPrivateKey,
+        push_cert: Certificate,
+        auth_key: RSAPrivateKey,
+        auth_cert: Certificate,
+        push_token: bytes,
+        handles: list[dict[Literal["uri"], str]],
 ):
     if registration_certificate := read_certificate(REGISTRATION_CERT_PATH):
         logger.info("Using existing registration certificate")

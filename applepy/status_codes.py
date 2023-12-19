@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import Enum, IntEnum
 
 
-class StatusCode(Enum):
+class StatusCode(IntEnum):
     SUCCESS = 0
     NO_RESULT_CODE = 1
     LEGACY_TUNNEL_OK = 200

@@ -105,6 +105,3 @@ class APNSMessage:
     def __bytes__(self) -> bytes:
         payload = b"".join(bytes(item) for item in self.items)
         return self.command_id.to_bytes(1, "big") + len(payload).to_bytes(4, "big") + payload
-
-
-print(APNSMessage(0x00, []).name)

@@ -8,7 +8,6 @@ from rich.prompt import Confirm
 
 from applepy.albert import request_push_cert
 from applepy.apns.manager import APNSManager
-from applepy.apns.packet import APNSMessage
 from applepy.bags import apns_bag, ids_bag
 from applepy.ids.auth import auth_device, auth_user, get_handles
 from applepy.ids.registration import register

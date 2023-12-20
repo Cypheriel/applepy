@@ -31,7 +31,7 @@ from applepy.ids.payload import generate_id_headers
 # noinspection SpellCheckingInspection
 COURIER_ID: Final = randint(1, apns_bag.get("APNSCourierHostcount", 50))
 COURIER_HOSTNAME: Final = apns_bag.get("APNSCourierHostname", "courier.push.apple.com")
-COURIER_HOST: Final = f"{COURIER_ID}-{COURIER_HOSTNAME}"
+COURIER_HOST: Final = f"{COURIER_ID:02}-{COURIER_HOSTNAME}"
 COURIER_PORT: Final = 5223
 
 ALPN_PROTOCOL: Final = ("apns-security-v3",)
@@ -118,6 +118,8 @@ class APNSManager:
                 APNSItem(0x0C, push_cert.public_bytes(Encoding.DER)),
                 APNSItem(0x0D, nonce),
                 APNSItem(0x0E, signature),
+                APNSItem(0x10, int.to_bytes(2, 2, "big")),
+                APNSItem(0x11, int.to_bytes(0, 2, "big")),
             ],
         ).write(self.courier_stream)
 

@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import partial
+from io import BytesIO
 from typing import Any, Callable, TypedDict
 
 from cryptography.x509 import load_der_x509_certificate
@@ -95,6 +96,24 @@ def reveal_token_or_topic_hash(data: bytes) -> str:
     raise Exception("Invalid length for PUSH_TOKEN/TOPIC item!")
 
 
+@dataclass
+class Nonce:
+    """Dataclass for a nonce."""
+
+    timestamp: datetime
+    random_bytes: bytes
+
+    @classmethod
+    def from_bytes(cls: "Nonce", data: bytes) -> "Nonce":
+        """Create a nonce from a byte string."""
+        stream = BytesIO(data)
+        stream.read(1)
+        return cls(
+            timestamp=datetime.fromtimestamp(big_endian(stream.read(8)) / 1_000),
+            random_bytes=stream.read(8),
+        )
+
+
 class MessageMap(TypedDict):
     """Type definition for the message map."""
 
@@ -115,7 +134,7 @@ MAP: dict[int, MessageMap] = {
             0x0A: Identifier("OS_BUILD", decode),
             0x0B: Identifier("HARDWARE_VERSION", decode),
             0x0C: Identifier("CERTIFICATE", load_der_x509_certificate),
-            0x0D: Identifier("NONCE"),
+            0x0D: Identifier("NONCE", Nonce.from_bytes),
             0x0E: Identifier("SIGNATURE"),
             # 0x10:
             0x11: Identifier("REDIRECT_COUNT", big_endian),

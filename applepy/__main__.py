@@ -27,7 +27,7 @@ apns = APNSManager()
 
 def entrypoint(func: Callable[..., int]) -> None:
     """General boilerplate for entrypoint functions such as `main()`."""
-    logger.info(f"Writing log to temporary file: {LOG_FILE_PATH.name}")
+    logger.info(f"Writing log to file: {LOG_FILE_PATH}")
 
     exit_code = 0
 

@@ -1,5 +1,6 @@
 """Module containing logic responsible for managing the connection to the Apple Push Notification service (APNs)."""
 import gzip
+import json
 import plistlib
 import socket
 import ssl
@@ -69,7 +70,7 @@ class APNSManager:
 
     def connect(self: "APNSManager", push_key: RSAPrivateKey, push_cert: Certificate) -> None:
         """Connect to the APNs service."""
-        logger.info("Connecting to APNs...")
+        logger.info("Connecting to the APNs...")
         nonce = b"\x00" + int(time.time() * 1000).to_bytes(8, "big") + randbytes(8)
         signature = b"\x01\x01" + push_key.sign(nonce, PKCS1v15(), SHA1())  # noqa: S303
 
@@ -158,6 +159,7 @@ class APNSManager:
 
         :param queue: The queue to put incoming commands into.
         """
+        logger.info("APNs watchdog started.")
         start_time = time.time()
         first_run = True
         while True:
@@ -184,6 +186,7 @@ class APNSManager:
 
         :param queue: The queue to get incoming commands from.
         """
+        logger.info("APNs command processor started.")
         while True:
             message = queue.get()
 
@@ -200,7 +203,7 @@ class APNSManager:
 
             elif message.command_id == get_command("PUSH_NOTIFICATION_ACK"):
                 if message.get_item_by_alias("STATUS").value != Status.OK:
-                    logger.error(f"Possible fault with {message.name}: {message.get_item_by_alias('STATUS').value}")
+                    logger.error(f"Possible fault with {message.name}: {message.get_item_by_alias('STATUS').value}.")
 
             elif message.command_id == get_command("KEEP_ALIVE_CONFIRMATION") or message.command_id == get_command(
                 "NO_STORAGE",
@@ -256,7 +259,6 @@ class APNSManager:
         data = {"uris": uris}
 
         payload = plistlib.dumps(data)
-        logger.debug(f"{payload = }")
         compressed_payload = gzip.compress(payload, mtime=0)  # TODO: Figure out if mtime=0 is necessary
 
         headers = {
@@ -264,8 +266,6 @@ class APNSManager:
             "x-protocol-version": PROTOCOL_VERSION,
             **generate_id_headers(auth_key, registration_cert, QUERY_KEY, self.push_token, payload=compressed_payload),
         }
-
-        logger.debug(f"{headers = }")
 
         request = {
             "cT": "application/x-apple-plist",
@@ -277,6 +277,8 @@ class APNSManager:
             "b": compressed_payload,
         }
 
-        logger.debug(f"{request = }")
+        logger.debug(f"Headers: {json.dumps(headers, indent=4)}")
+        logger.debug(f"Payload (pre-plist): {json.dumps(data, indent=4)}")
+        logger.debug(f"Request: {json.dumps(request, indent=4)}")
 
         return self.send_notification(plistlib.dumps(request, fmt=plistlib.FMT_BINARY))

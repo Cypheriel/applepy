@@ -1,4 +1,5 @@
 """Registration with Apple's Identity Services."""
+import json
 import plistlib
 from base64 import b64decode
 from logging import getLogger
@@ -81,7 +82,7 @@ def register(  # noqa: PLR0913 - TODO: Refactor
 ) -> Certificate:
     """Attempt to register a device with Apple's Identity Services."""
     if registration_certificate := read_certificate(REGISTRATION_CERT_PATH):
-        logger.info("Using existing registration certificate")
+        logger.info("Using existing registration certificate.")
         return registration_certificate
 
     logger.info("Requesting validation data...")
@@ -93,8 +94,7 @@ def register(  # noqa: PLR0913 - TODO: Refactor
 
     validation_data = validation_response.content.decode()
 
-    logger.info("Validation data received.")
-    logger.debug(f"{validation_data = }")
+    logger.info("Received validation data.")
 
     data = {
         "language": "en-US",
@@ -159,7 +159,8 @@ def register(  # noqa: PLR0913 - TODO: Refactor
         **generate_auth_headers(push_key, push_cert, auth_key, auth_cert, REGISTER_KEY, push_token, 0, payload=payload),
     }
 
-    logger.debug(f"{headers = }")
+    logger.debug(f"Headers: {json.dumps(headers, indent=4)}")
+    logger.debug(f"Payload (pre-plist): {json.dumps(data, indent=4)}")
 
     response = requests.post(
         REGISTER_URL,
@@ -170,7 +171,7 @@ def register(  # noqa: PLR0913 - TODO: Refactor
     )
 
     response_data = plistlib.loads(response.content)
-    logger.debug(f"{response_data = }")
+    logger.debug(f"Response: {json.dumps(response_data, indent=4)}")
 
     status_code = StatusCode(response_data["status"])
     match status_code:

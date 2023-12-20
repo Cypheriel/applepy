@@ -1,4 +1,5 @@
 """Entry point for the application script."""
+import json
 import os
 import sys
 import time
@@ -61,8 +62,8 @@ def entrypoint(func: Callable[..., int]) -> None:
 def main(*_args: str, **_kwargs: str) -> int:
     """Entry point function this package."""
     # Obtain the APNs and IDS bags which contain varying endpoints used by various Apple services.
-    logger.debug(f"APNs bag: {apns_bag}")
-    logger.debug(f"IDS bag: {ids_bag}")
+    logger.debug(f"APNs bag: {json.dumps(apns_bag, indent=4)}")
+    logger.debug(f"IDS bag: {json.dumps(ids_bag, indent=4)}")
 
     # Obtain the private key that signed the CSR and the resulting push certificate from Apple.
     push_key, push_cert = request_push_cert()

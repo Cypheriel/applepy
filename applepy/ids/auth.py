@@ -1,4 +1,5 @@
 """Module containing functions for authenticating with Apple's servers."""
+import json
 import plistlib
 from base64 import b64decode
 from functools import partial
@@ -142,6 +143,8 @@ def auth_user(
         case _:
             raise IDSAuthenticationResponseError(AUTHENTICATE_USER_KEY, status_code)
 
+    logger.debug(f"User Authentication Payload: {json.dumps(auth_payload, indent=4)}")
+
     profile_id = auth_payload["profile-id"]
     auth_token = auth_payload["auth-token"]
 
@@ -181,7 +184,7 @@ def auth_device(profile_id: str, auth_token: str) -> tuple[RSAPrivateKey, Certif
     payload = plistlib.dumps(data)
 
     logger.debug(f"Sending request to {ids_bag[AUTHENTICATE_DEVICE_KEY]} via v{PROTOCOL_VERSION}.")
-    logger.debug(f"{payload = }")
+    logger.debug(f"Payload: {json.dumps(data, indent=4)}")
 
     response = requests.post(
         AUTHENTICATE_DEVICE_URL,
@@ -234,7 +237,7 @@ def get_handles(  # noqa: PLR0913 - TODO: Refactor
     }
 
     logger.debug(f"Sending request to {ids_bag[GET_HANDLES_KEY]} via v{PROTOCOL_VERSION}.")
-    logger.debug(f"{headers = }")
+    logger.debug(f"Headers: {json.dumps(headers, indent=4)}")
 
     response = requests.get(
         GET_HANDLES_URL,
@@ -244,6 +247,8 @@ def get_handles(  # noqa: PLR0913 - TODO: Refactor
     )
 
     payload = plistlib.loads(response.content)
+
+    logger.debug(f"Payload: {json.dumps(payload, indent=4)}")
 
     status_code = StatusCode(payload.get("status"))
     match status_code:
@@ -256,6 +261,6 @@ def get_handles(  # noqa: PLR0913 - TODO: Refactor
     handles = payload["handles"]
 
     handles_simple = [handle["uri"] for handle in handles]
-    logger.info(f"Obtained handles from {GET_HANDLES_URL}: {handles_simple}")
+    logger.info(f"Obtained the following handles: {handles_simple}")
 
     return handles

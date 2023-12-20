@@ -4,6 +4,7 @@ Module for interacting with Albert.
 Albert is a service provided by Apple that allows devices to request push certificates.
 This module contains functions for requesting a push certificate from Albert.
 """
+import json
 import plistlib
 import re
 from importlib import resources
@@ -141,8 +142,9 @@ def request_push_cert() -> tuple[RSAPrivateKey, Certificate]:
         "FairPlaySignature": activation_signature,
     }
 
-    logger.info(f"Requesting push certificate from {ACTIVATION_URL}.")
-    logger.debug(f"Request payload: {payload}")
+    logger.info("Requesting push certificate from Albert...")
+    logger.debug(f"Sending request to {ACTIVATION_URL}.")
+    logger.debug(f"Request payload: {json.dumps(payload, indent=4)}")
 
     response = requests.post(
         ACTIVATION_URL,

@@ -4,8 +4,10 @@ import plistlib
 import socket
 import ssl
 import time
+from base64 import b64decode, b64encode
 from hashlib import sha1
 from logging import getLogger
+from os import getenv
 from queue import Queue
 from typing import Final
 
@@ -14,9 +16,11 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.hashes import SHA1
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509 import Certificate
+from dotenv import load_dotenv, set_key
 from rich.pretty import pretty_repr
 
 from applepy.albert import ACTIVATION_INFO_PAYLOAD
+from applepy.apns import APNS_DOTENV
 from applepy.apns.identifier_map import Status, get_command
 from applepy.apns.packet import APNSCommand, APNSItem
 from applepy.bags import apns_bag, ids_bag
@@ -37,6 +41,7 @@ QUERY_URL: Final = ids_bag[QUERY_KEY]
 
 KEEP_ALIVE_INTERVAL: Final = 60  # 1 minute
 
+load_dotenv(APNS_DOTENV)
 logger = getLogger(__name__)
 
 
@@ -44,15 +49,34 @@ class APNSManager:
     """Class whose objects are responsible for managing the connection to the Apple Push Notification service (APNs)."""
 
     push_notifications: Queue[APNSCommand]
-    push_token: bytes
     enabled_topics: list[str]
     selected_topic: str
     courier_stream: ssl.SSLSocket
+    connected: bool = False
+
+    _push_token: bytes = b""
+
+    @property
+    def push_token(self: "APNSManager") -> bytes:
+        """Return the push token."""
+        if self._push_token:
+            return self._push_token
+
+        if push_token := getenv("PUSH_TOKEN"):
+            self._push_token = b64decode(push_token)
+
+        return self._push_token
+
+    @push_token.setter
+    def push_token(self: "APNSManager", value: bytes) -> None:
+        """Set the push token."""
+        self._push_token = value
+        set_key(APNS_DOTENV, "PUSH_TOKEN", b64encode(value).decode())
+        logger.debug(f"Setting PUSH_TOKEN in {APNS_DOTENV}")
 
     def __init__(self: "APNSManager") -> None:
         """Initialize an `APNSManager` object."""
         self.push_notifications: Queue[APNSCommand] = Queue()
-        self.push_token: bytes = b""
         self.enabled_topics: list[str] = []
         self.selected_topic: str = "com.apple.madrid"  # TODO: Ensure this is in enabled topics
 
@@ -74,9 +98,16 @@ class APNSManager:
         nonce = b"\x00" + int(time.time() * 1000).to_bytes(8, "big") + randbytes(8)
         signature = b"\x01\x01" + push_key.sign(nonce, PKCS1v15(), SHA1())  # noqa: S303
 
+        push_token_item: list[APNSItem] = [APNSItem(0x01, self.push_token)] if self.push_token else []
+        if self.push_token:
+            logger.info("Utilizing an existing push token.")
+        else:
+            logger.info("Attempting to obtain a new push token.")
+
         APNSCommand(
             command_id=get_command("CONNECT"),
             items=[
+                *push_token_item,
                 APNSItem(0x02, b"\x01"),
                 APNSItem(0x05, 0b01000001.to_bytes(4, "big")),
                 APNSItem(0x06, b"\x01"),
@@ -196,7 +227,12 @@ class APNSManager:
 
                 logger.info("Successfully connected to the APNs!")
                 logger.debug(f"Connected to APNs via {self.courier_stream.server_hostname}.")
-                self.push_token = message.get_item_by_alias("PUSH_TOKEN").data
+
+                if not self.push_token:
+                    self.push_token = message.get_item_by_alias("PUSH_TOKEN").data
+                    logger.info("Obtained new push token.")
+
+                self.connected = True
 
             elif message.command_id == get_command("PUSH_NOTIFICATION"):
                 self.send_notification_ack(message.get_item_by_alias("MESSAGE_ID").value)

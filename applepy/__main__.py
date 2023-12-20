@@ -14,6 +14,7 @@ from applepy.albert import request_push_cert
 from applepy.apns.manager import APNSManager
 from applepy.apns.packet import APNSCommand
 from applepy.bags import apns_bag, ids_bag
+from applepy.data_dirs import USER_DATA_DIR
 from applepy.ids.auth import auth_device, auth_user, get_handles
 from applepy.ids.registration import register
 from applepy.init_logging import LOG_FILE_PATH, setup_logging, upload_log
@@ -61,6 +62,8 @@ def entrypoint(func: Callable[..., int]) -> None:
 @entrypoint
 def main(*_args: str, **_kwargs: str) -> int:
     """Entry point function this package."""
+    USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
     # Obtain the APNs and IDS bags which contain varying endpoints used by various Apple services.
     logger.debug(f"APNs bag: {pretty_repr(apns_bag)}")
     logger.debug(f"IDS bag: {pretty_repr(ids_bag)}")
@@ -85,7 +88,7 @@ def main(*_args: str, **_kwargs: str) -> int:
         if time.time() - start_time > APNS_TIMEOUT:
             raise TimeoutError("Failed to obtain push token after 30 seconds.")
 
-        if apns.push_token:
+        if apns.connected:
             break
 
         time.sleep(0.1)

@@ -207,8 +207,9 @@ class APNSManager:
                 if status != Status.OK:
                     logger.error(f"Possible fault with {message.name}: {status}")
 
-            elif message.command_id == get_command("KEEP_ALIVE_CONFIRMATION") or message.command_id == get_command(
-                "NO_STORAGE",
+            elif message.command_id in (
+                get_command("KEEP_ALIVE_CONFIRMATION"),
+                get_command("NO_STORAGE"),
             ):
                 continue
 

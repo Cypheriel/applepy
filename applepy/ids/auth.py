@@ -189,7 +189,7 @@ def auth_device(profile_id: str, auth_token: str) -> tuple[RSAPrivateKey, Certif
     response = requests.post(
         AUTHENTICATE_DEVICE_URL,
         headers={
-            "x-protocol-version": "1630",
+            "x-protocol-version": PROTOCOL_VERSION,
         },
         data=payload,
         verify=False,  # noqa: S501

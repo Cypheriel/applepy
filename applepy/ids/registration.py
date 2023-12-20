@@ -1,3 +1,4 @@
+"""Registration with Apple's Identity Services."""
 import plistlib
 import random
 from base64 import b64decode
@@ -78,6 +79,7 @@ def register(
     push_token: bytes,
     handles: list[dict[Literal["uri"], str]],
 ):
+    """Attempt to register a device with Apple's Identity Services."""
     if registration_certificate := read_certificate(REGISTRATION_CERT_PATH):
         logger.info("Using existing registration certificate")
         return registration_certificate

@@ -1,3 +1,9 @@
+"""
+Module for interacting with Albert.
+
+Albert is a service provided by Apple that allows devices to request push certificates.
+This module contains functions for requesting a push certificate from Albert.
+"""
 import plistlib
 import re
 from importlib import resources
@@ -50,6 +56,7 @@ if not FAIRPLAY_CERT_CHAIN:
 
 
 def _generate_device_csr(private_key: RSAPrivateKey) -> CertificateSigningRequest:
+    """Generate a `CertificateSigningRequest` used for the request to Albert."""
     csr = CertificateSigningRequestBuilder(
         subject_name=x509.Name(
             [
@@ -93,6 +100,11 @@ class AlbertException(Exception):
 
 
 def request_push_cert() -> tuple[RSAPrivateKey, Certificate]:
+    """
+    Request a push certificate from Albert.
+
+    :return: A `tuple` containing the private key and the push certificate.
+    """
     if (private_key := read_private_key(DEVICE_KEY_PATH)) and (
         certificate := read_certificate(DEVICE_CERTIFICATE_PATH)
     ):

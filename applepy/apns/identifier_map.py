@@ -1,3 +1,4 @@
+"""Module for mapping command and item identifiers to their names and transformed values."""
 import gzip
 import plistlib
 from dataclasses import dataclass
@@ -10,22 +11,29 @@ from cryptography.x509 import load_der_x509_certificate
 
 
 class Status(Enum):
+    """Enum for the status returned by the server in some response items."""
+
     OK = b"\x00"
     ERROR = b"\x02"
 
 
 class Interface(Enum):
+    """Enum for the interface types sent by the client in the CONNECT command."""
+
     WIFI = b"\x00"
     CELLULAR = b"\x01"
 
 
 @dataclass
 class Identifier:
+    """Dataclass for mapping item identifiers to their semantic aliases and data transformers."""
+
     name: str
     transformer: Callable[[bytes], Any] | None = None
 
 
 def get_command(name: str) -> int:
+    """Get the command identifier for a given command name."""
     for command_id, command in MAP.items():
         if command["name"] == name:
             return command_id
@@ -38,11 +46,13 @@ decode = partial(bytes.decode)
 
 
 def to_binary_repr(data: bytes) -> str:
+    """Convert a byte string to a binary representation."""
     return " ".join(f"{bin(i)[2:]:>08}" for i in data)
 
 
 def _to_datetime(data: bytes, ms=False, ns=False) -> datetime:
     conversion_factor = 1_000_000 if ns else 1_000 if ms else 1
+    """Convert a byte string to a datetime object."""
     return datetime.utcfromtimestamp(big_endian(data) / conversion_factor)
 
 
@@ -51,14 +61,17 @@ to_datetime_ns = partial(_to_datetime, ns=True)
 
 
 def to_timedelta(data: bytes) -> timedelta:
+    """Convert a byte string to a timedelta object."""
     return timedelta(milliseconds=big_endian(data))
 
 
 def extract_payload(data: bytes) -> dict:
+    """Extract the payload from a PUSH_NOTIFICATION item."""
     plist = plistlib.loads(data)
     decompressed_plist = plistlib.loads(gzip.decompress(plist["b"]))
     return decompressed_plist
 
+    """Type definition for the message map."""
 
 MAP = {
     0x07: {
@@ -169,6 +182,11 @@ MAP = {
 
 
 def _get_name(command_id: int) -> str:
+    """
+    Get the command name for a given command identifier.
+
+    :return: The command name, or "UNKNOWN(0xXX)" if the command identifier is not known.
+    """
     try:
         return MAP[command_id]["name"]
     except KeyError:

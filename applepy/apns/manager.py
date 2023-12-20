@@ -1,3 +1,4 @@
+"""Module containing logic responsible for managing the connection to the Apple Push Notification service (APNs)."""
 import gzip
 import plistlib
 import socket
@@ -37,11 +38,10 @@ logger = getLogger(__name__)
 
 
 class APNSManager:
-    push_token: bytes
-    enabled_topics: list[str]
-    selected_topic: str = "com.apple.madrid"  # TODO: Ensure this is in enabled topics
+    """Class whose objects are responsible for managing the connection to the Apple Push Notification service (APNs)."""
 
     def __init__(self) -> None:
+        """Initialize an `APNSManager` object."""
         sock = socket.create_connection((COURIER_HOST, COURIER_PORT))
 
         ssl_context = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
@@ -55,6 +55,7 @@ class APNSManager:
         self.courier_stream.do_handshake()
 
     def connect(self, push_key: RSAPrivateKey, push_cert: Certificate):
+        """Connect to the APNs service."""
         nonce = b"\x00" + int(time.time() * 1000).to_bytes(8, "big") + randbytes(8)
         signature = b"\x01\x01" + push_key.sign(nonce, PKCS1v15(), SHA1())
 
@@ -87,6 +88,7 @@ class APNSManager:
         logger.info(f"Connected to APNs via [cyan]{self.courier_stream.server_hostname}[/]!")
 
     def filter_topics(self, topics: list[str]):
+        """Set the enabled APNs topics."""
         self.enabled_topics = topics
 
         # TODO: Find a better way to do this
@@ -102,6 +104,12 @@ class APNSManager:
 
     def send_message(self, topic: str, payload: bytes):
         APNSMessage(
+        """
+        Send a push notification over the APNs.
+
+        :param payload: The payload to send.
+        :return: The message ID of the notification that was sent.
+        """
             command_id=get_command("PUSH_NOTIFICATION"),
             items=[
                 APNSItem(0x01, topic.encode("utf-8")),
@@ -120,6 +128,12 @@ class APNSManager:
     def send_keepalive(self):
         APNSMessage(
             command_id=get_command("KEEPALIVE"),
+        """
+        Send a push notification acknowledgement.
+
+        :param message_id: The message ID of the notification to acknowledge.
+        """
+        """Send a keepalive command to the APNs."""
             items=[
                 APNSItem(0x01, b"WiFi"),
                 APNSItem(0x02, ACTIVATION_INFO_PAYLOAD["ProductVersion"].encode()),
@@ -133,6 +147,9 @@ class APNSManager:
 
     def watchdog(self):
         # TODO: Proper threading and signal handling
+        """
+        Watch for incoming commands from the APNs.
+        """
         start_time = time.time()
         keep_alive_interval = 60  # 1 minute
         first_run = True
@@ -184,6 +201,15 @@ class APNSManager:
             return None
 
     def query(self, handle: str, uris: list[str], auth_key: RSAPrivateKey, registration_cert: Certificate):
+        """
+        Send an APNs participant handle query.
+
+        :param handle: The handle to send the query from.
+        :param uris: The URIs to query.
+        :param auth_key: The private key used to sign the request.
+        :param registration_cert: The certificate sent through the request.
+        :return: The message ID of the request.
+        """
         logger.info(f"Querying for {uris}...")
         data = {"uris": uris}
 

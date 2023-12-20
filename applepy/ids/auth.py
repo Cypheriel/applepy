@@ -46,6 +46,14 @@ logger = getLogger(__name__)
 
 class IDSAuthenticationResponseError(Exception):
     def __init__(self, location: str, status_code: StatusCode) -> None:
+    """Exception raised when an IDS authentication request returns an error."""
+
+        """
+        Initialize an IDSAuthenticationResponseError.
+
+        :param location: The location of the request.
+        :param status_code: The status code returned by the request.
+        """
         self.status_code = status_code
         super().__init__(f"IDS authentication error in {location}: {status_code}")
 
@@ -57,6 +65,16 @@ def auth_user(
     tries: int = 0,
     force: bool = False,
 ) -> tuple[str, str]:
+    """
+    Authenticate the user's credentials with IDS.
+
+    :param username: The user's Apple ID.
+    :param password: The user's Apple ID password.
+    :param code: The 2FA code sent to the user's device.
+    :param force: Whether to force re-authentication, ignoring cached credentials.
+    :param _tries: The number of times this function has been called. Do not pass this argument.
+    :return: A tuple containing the user's profile ID and authentication token.
+    """
     profile_id = getenv("PROFILE_ID")
     auth_token = getenv("AUTH_TOKEN")
     if profile_id and auth_token and not force:
@@ -75,7 +93,8 @@ def auth_user(
         logger.debug("Asking user for Apple ID credentials.")
         print("Please enter your Apple ID credentials.")
 
-    username = username or input("Username: ").strip()
+    # TODO: Move input to main() and pass it to auth_user().
+    username = username or input("Apple ID: ").strip()
     password = f"{password}{code}" or pwinput("Password: ").strip()
 
     data = {
@@ -124,6 +143,8 @@ def auth_user(
 
 
 def auth_device(profile_id: str, auth_token: str) -> tuple[RSAPrivateKey, Certificate]:
+    """Authenticate with Apple's servers to obtain an authentication certificate."""
+    # Check if we already have a private key and certificate.
     if (private_key := read_private_key(AUTH_KEY_PATH)) and (auth_cert := read_certificate(AUTH_CERT_PATH)):
         return private_key, auth_cert
 
@@ -185,6 +206,17 @@ def get_handles(
     auth_cert: Certificate,
     push_token: bytes,
 ) -> list[dict[Literal["uri"], str]]:
+    """
+    Retrieve the user's handles.
+
+    :param profile_id: The user's profile ID.
+    :param push_key: The user's push private key.
+    :param push_cert: The user's push certificate.
+    :param auth_key: The user's authentication private key.
+    :param auth_cert: The user's authentication certificate.
+    :param push_token: The user's push token.
+    :return: A list of the user's handles.
+    """
     headers = {
         "x-protocol-version": PROTOCOL_VERSION,
         "x-auth-user-id": profile_id,

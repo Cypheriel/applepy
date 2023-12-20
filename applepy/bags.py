@@ -1,3 +1,4 @@
+"""Module containing functions to fetch Apple's APNs and IDS bags."""
 import plistlib
 from functools import lru_cache
 from logging import getLogger
@@ -11,6 +12,7 @@ logger = getLogger(__name__)
 @lru_cache
 def get_apns_bag() -> dict[str, str]:
     response = requests.get("https://init.push.apple.com/bag", verify=False)
+    """Fetch Apple's APNs bag."""
     if not response.ok:
         raise Exception(f"Failed to fetch APNs bag! Status: {response.status_code}")
 
@@ -21,6 +23,7 @@ def get_apns_bag() -> dict[str, str]:
 def get_ids_bag() -> dict[str, str]:
     response = requests.get("https://init.ess.apple.com/WebObjects/VCInit.woa/wa/getBag?ix=3", verify=False)
     if response.status_code != 200:
+    """Fetch Apple's IDS bag."""
         raise Exception("Failed to fetch IDS bag!")
 
     return plistlib.loads(plistlib.loads(response.content)["bag"])

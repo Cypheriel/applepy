@@ -1,7 +1,10 @@
 from enum import Enum, IntEnum
+"""Status codes used by Apple's various services."""
 
 
 class StatusCode(IntEnum):
+    """List of status codes used by Apple's various services."""
+
     SUCCESS = 0
     NO_RESULT_CODE = 1
     LEGACY_TUNNEL_OK = 200
@@ -119,8 +122,11 @@ class StatusCode(IntEnum):
     UNKNOWN = -1
 
     def __str__(self: "StatusCode") -> str:
+        """Return a human-readable representation of the status code."""
         return f"{self.name} ({self.value})"
 
     @classmethod
-    def _missing_(cls, value):
-        return StatusCode.UNKNOWN
+    def _missing_(cls: Type["StatusCode"], value: object) -> "StatusCode":  # noqa: PLW3201 - built-in method override
+        """Return the `UNKNOWN` status code for any unknown value."""
+        del value
+        return cls.UNKNOWN

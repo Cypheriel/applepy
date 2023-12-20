@@ -1,3 +1,4 @@
+"""Payload generation for IDS requests."""
 from base64 import b64encode
 from datetime import datetime
 from random import randbytes
@@ -11,6 +12,7 @@ from applepy.crypto_helper import strip_pem
 
 
 def to_length_value(data: bytes, length: int = 4):
+    """Prepend the length of the data to the data."""
     return len(data).to_bytes(length, "big") + data
 
 
@@ -20,6 +22,7 @@ def _generate_payload(
     payload: bytes | None = None,
     push_token: bytes | None = None,
 ):
+    """Generate a nonce and payload."""
     bag_key = bag_key or ""
     query_string = query_string or ""
     payload = payload or b""
@@ -44,6 +47,7 @@ def generate_signed_payload(
     payload: bytes | None = None,
     push_token: bytes | None = None,
 ):
+    """Generate a signed payload."""
     nonce, payload = _generate_payload(bag_key, query_string, payload, push_token)
     signed_payload = b64encode(b"\x01\x01" + private_key.sign(payload, PKCS1v15(), SHA1()))
     return nonce, signed_payload
@@ -59,6 +63,7 @@ def generate_auth_headers(
     auth_suffix_number: int | None = None,
     payload: bytes | None = None,
 ):
+    """Generate authentication headers."""
     push_nonce, push_sig = generate_signed_payload(
         private_key=push_key,
         bag_key=bag_key,
@@ -90,6 +95,7 @@ def generate_id_headers(
     push_token: bytes,
     payload: bytes | None = None,
 ):
+    """Generate identification headers for some IDS requests."""
     nonce, sig = generate_signed_payload(
         private_key=auth_key,
         bag_key=bag_key,

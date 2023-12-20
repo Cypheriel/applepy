@@ -1,3 +1,4 @@
+"""General module for initializing logging."""
 import logging
 from os import getenv
 from socket import AF_INET, SOCK_STREAM, socket
@@ -9,11 +10,15 @@ from rich.logging import RichHandler
 
 log_file = NamedTemporaryFile(delete=False)
 logger = logging.getLogger(__name__)
+    """
+    Set up the logging environment.
 
 file_handler = logging.FileHandler(log_file.name)
 # noinspection SpellCheckingInspection
 file_handler.setFormatter(logging.Formatter("%(asctime)s @%(name)-8s [%(levelname)s]: %(message)s\n"))
 file_handler.setLevel(logging.NOTSET)
+    :return: The file handler used for logging.
+    """
 
 rich_handler = RichHandler(
     rich_tracebacks=True,
@@ -39,8 +44,7 @@ def _disable_logging():
 
 
 def upload_log() -> str:
-    log_file.seek(0)
-
+    """Upload the log to termbin.com."""
     sock = socket(AF_INET, SOCK_STREAM)
     sock.connect(("termbin.com", 9999))
     sock.sendall(log_file.read())

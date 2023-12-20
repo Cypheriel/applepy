@@ -1,4 +1,4 @@
-from importlib import resources
+"""Module for managing Apple's Identity Services (IDS) credential paths."""
 from typing import Final
 
 IDS_ROOT: Final = resources.files(__package__)

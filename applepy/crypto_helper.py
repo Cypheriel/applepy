@@ -23,6 +23,7 @@ logger = getLogger(__name__)
 
 
 def _read_with_transform(path: Traversable, transform: Callable[[bytes], T]) -> T | None:
+    """Read a file or credential from a path, and transforms it with a function."""
     if path.is_file() is False:
         return None
 
@@ -62,6 +63,7 @@ def create_private_key(
     key_type: Type[rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey] = rsa.RSAPrivateKey,
     key_size: int = 2048,
 ) -> rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey:
+    """Create a private key and saves it to a path."""
     match key_type:
         case rsa.RSAPrivateKey:
             private_key = rsa.generate_private_key(public_exponent=65537, key_size=key_size)
@@ -102,7 +104,10 @@ def read_private_key(
     path: Traversable,
     key_type: Type[rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey] = rsa.RSAPrivateKey,
 ) -> rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey | None:
-    assert key_type in (rsa.RSAPrivateKey, ec.EllipticCurvePrivateKey)
+    """Read a private key from a path."""
+    if key_type not in (rsa.RSAPrivateKey, ec.EllipticCurvePrivateKey):
+        raise TypeError(f"Unsupported key type {key_type}")
+
     return _read_with_transform(path, partial(load_pem_private_key, password=None))
 
 
@@ -120,6 +125,7 @@ def create_public_key(
     path: Traversable,
     private_key: rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey,
 ) -> rsa.RSAPublicKey | ec.EllipticCurvePublicKey:
+    """Create a public key from a private key and saves it to a path."""
     public_key = private_key.public_key()
 
     with path.open("wb") as f:
@@ -143,20 +149,24 @@ def read_public_key(
     key_type: Type[rsa.RSAPublicKey | ec.EllipticCurvePublicKey] = rsa.RSAPublicKey,
 ) -> rsa.RSAPublicKey | ec.EllipticCurvePublicKey | None:
     assert key_type in (rsa.RSAPublicKey, ec.EllipticCurvePublicKey)
+    """Read a public key from a path."""
     return _read_with_transform(path, partial(load_pem_public_key))
 
 
 def save_public_key(path: Traversable, private_key: rsa.RSAPublicKey | ec.EllipticCurvePublicKey):
+    """Save a public key to a path."""
     with path.open("wb") as f:
         f.write(private_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo))
 
 
 def save_certificate(path: Traversable, certificate: Certificate):
+    """Save a certificate to a path."""
     with path.open("wb") as f:
         f.write(certificate.public_bytes(Encoding.PEM))
 
 
 def read_certificate(path: Traversable) -> Certificate | None:
+    """Read a certificate from a path and returns it if it is valid."""
     certificate = _read_with_transform(path, load_pem_x509_certificate)
 
     if certificate is None or certificate.not_valid_after < datetime.now() - timedelta(days=1):
@@ -166,6 +176,7 @@ def read_certificate(path: Traversable) -> Certificate | None:
 
 
 def save_csr(path: Traversable, csr: CertificateSigningRequest):
+    """Save a Certificate Signing Request to a path."""
     with path.open("wb") as f:
         f.write(csr.public_bytes(Encoding.PEM))
 
@@ -185,6 +196,7 @@ def strip_pem(pem: Certificate | RSAPrivateKey | bytes | str, remove_newline=Tru
         pem_str = pem.encode()
     else:
         raise TypeError(f"Expected PEM, got {type(pem)}")
+    """Strip a PEM of its header and footer, as well as optionally removing any newlines."""
 
     result = re.sub(r"""-----(BEGIN|END) ([A-Z]+ ?)+-----""", "", pem_str.decode()).strip().encode()
     if remove_newline is True:

@@ -80,9 +80,14 @@ def main(*_args: str, **_kwargs: str) -> int:
 
     # Wait for the APNs connection to be established, as signaled by the receipt of a push token.
     start_time = time.time()
-    while not apns.push_token:
+    while True:
         if time.time() - start_time > APNS_TIMEOUT:
             raise TimeoutError("Failed to obtain push token after 30 seconds.")
+
+        if apns.push_token:
+            break
+
+        time.sleep(0.1)
 
     # Filter the APNs connection to only receive notifications for the Madrid topic.
     apns.filter_topics(["com.apple.madrid"])

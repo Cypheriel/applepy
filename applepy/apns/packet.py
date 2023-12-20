@@ -27,7 +27,6 @@ class APNSItem:
 
     def __post_init__(self: "APNSItem") -> None:
         """Set the name override to an empty string."""
-        self.name_override: str = ""
 
     @cached_property
     def name(self: "APNSItem") -> str:

@@ -6,7 +6,7 @@ from logging import getLogger
 from socket import socket
 from typing import Callable, Type, TypeVar
 
-from applepy.apns.identifier_map import MAP, _get_name, get_command
+from applepy.apns.identifier_map import MAP, SHA1_LENGTH, TOKEN_LENGTH, _get_name
 
 T = TypeVar("T")
 
@@ -29,7 +29,18 @@ class APNSItem:
     def name(self: "APNSItem") -> str:
         """Get the alias of the item, or the hex representation if it is unknown."""
         try:
-            return self.name_override or MAP[self.command_id]["items"][self.item_id].name
+            map_name = MAP[self.command_id]["items"][self.item_id].name
+            if map_name != "TOPIC/PUSH_TOKEN":
+                return map_name
+
+            if len(self.data) == TOKEN_LENGTH:
+                return "PUSH_TOKEN"
+
+            if len(self.data) == SHA1_LENGTH:
+                return "TOPIC"
+
+            raise Exception("Invalid length for PUSH_TOKEN/TOPIC item!")
+
         except (KeyError, IndexError):
             return f"UNKNOWN(0x{self.item_id:02x})"
 
@@ -95,13 +106,6 @@ class APNSCommand:
         debug_message = f"Received packet {_get_name(command_id)} ({command_id}):"
 
         for item in items:
-            if command_id == get_command("PUSH_NOTIFICATION"):
-                match item.item_id:
-                    case 0x01:
-                        item.name_override = "PUSH_TOKEN"
-                    case 0x02:
-                        item.name_override = "TOPIC"
-
             debug_message += f"\n    {item.name}: {item.value}"
 
         logger.debug(debug_message)
@@ -115,13 +119,6 @@ class APNSCommand:
         debug_message = f"Sending packet {self.name} ({self.command_id}):"
 
         for item in self.items:
-            if self.command_id == get_command("PUSH_NOTIFICATION"):
-                match item.item_id:
-                    case 0x01:
-                        item.name_override = "TOPIC"
-                    case 0x02:
-                        item.name_override = "PUSH_TOKEN"
-
             debug_message += f"\n    {item.name}: {item.value}"
 
         logger.debug(debug_message)

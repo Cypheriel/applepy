@@ -1,6 +1,7 @@
 """Module for mapping command and item identifiers to their names and transformed values."""
 import gzip
 import plistlib
+from base64 import b64encode
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
@@ -8,6 +9,13 @@ from functools import partial
 from typing import Any, Callable, TypedDict
 
 from cryptography.x509 import load_der_x509_certificate
+
+from applepy.apns.topic_map import get_topic_by_hash
+
+TOKEN_LENGTH = 32
+"""The length of a push token in bytes."""
+SHA1_LENGTH = 20
+"""The length of a SHA1 topic_hash in bytes."""
 
 
 class Status(Enum):
@@ -71,6 +79,22 @@ def extract_payload(data: bytes) -> dict:
     return plistlib.loads(gzip.decompress(plist["b"]))
 
 
+def b64encode_push_token(data: bytes) -> str:
+    """Base-64 encode a push token."""
+    return b64encode(data).decode()
+
+
+def reveal_token_or_topic_hash(data: bytes) -> str:
+    """Reveal the token or topic topic_hash from a TOPIC/PUSH_TOKEN item."""
+    if len(data) == TOKEN_LENGTH:
+        return b64encode_push_token(data)
+
+    if len(data) == SHA1_LENGTH:
+        return get_topic_by_hash(data)
+
+    raise Exception("Invalid length for PUSH_TOKEN/TOPIC item!")
+
+
 class MessageMap(TypedDict):
     """Type definition for the message map."""
 
@@ -82,7 +106,7 @@ MAP: dict[int, MessageMap] = {
     0x07: {
         "name": "CONNECT",
         "items": {
-            0x01: Identifier("PUSH_TOKEN"),
+            0x01: Identifier("PUSH_TOKEN", b64encode_push_token),
             0x02: Identifier("STATE"),
             0x05: Identifier("FLAGS", to_binary_repr),
             0x06: Identifier("INTERFACE", Interface),
@@ -104,7 +128,7 @@ MAP: dict[int, MessageMap] = {
         "items": {
             0x01: Identifier("STATUS", Status),
             0x02: Identifier("SERVER_METADATA"),  # Requires verification
-            0x03: Identifier("PUSH_TOKEN"),
+            0x03: Identifier("PUSH_TOKEN", b64encode_push_token),
             0x04: Identifier("MAX_MESSAGE_SIZE", big_endian),
             0x05: Identifier("PROTOCOL_VERSION(?)", big_endian),  # Requires verification
             0x06: Identifier("CAPABILITIES", to_binary_repr),
@@ -119,18 +143,18 @@ MAP: dict[int, MessageMap] = {
     0x09: {
         "name": "PUSH_TOPICS",
         "items": {
-            0x01: Identifier("PUSH_TOKEN"),
-            0x02: Identifier("ENABLED_TOPIC"),
-            0x03: Identifier("DISABLED_TOPIC"),
-            0x04: Identifier("OPPORTUNISTIC_TOPIC"),
-            0x05: Identifier("PAUSED_TOPIC"),
+            0x01: Identifier("PUSH_TOKEN", b64encode_push_token),
+            0x02: Identifier("ENABLED_TOPIC", get_topic_by_hash),
+            0x03: Identifier("DISABLED_TOPIC", get_topic_by_hash),
+            0x04: Identifier("OPPORTUNISTIC_TOPIC", get_topic_by_hash),
+            0x05: Identifier("PAUSED_TOPIC", get_topic_by_hash),
         },
     },
     0x0A: {
         "name": "PUSH_NOTIFICATION",
         "items": {
-            0x01: Identifier("TOPIC/PUSH_TOKEN"),
-            0x02: Identifier("TOPIC/PUSH_TOKEN"),
+            0x01: Identifier("TOPIC/PUSH_TOKEN", reveal_token_or_topic_hash),
+            0x02: Identifier("TOPIC/PUSH_TOKEN", reveal_token_or_topic_hash),
             0x03: Identifier("PAYLOAD", extract_payload),
             0x04: Identifier("MESSAGE_ID", big_endian),
             0x05: Identifier("EXPIRATION_DATE", to_datetime_ms),
@@ -149,7 +173,7 @@ MAP: dict[int, MessageMap] = {
     0x0B: {
         "name": "PUSH_NOTIFICATION_ACK",
         "items": {
-            0x01: Identifier("PUSH_TOKEN"),
+            0x01: Identifier("PUSH_TOKEN", b64encode_push_token),
             0x04: Identifier("MESSAGE_ID", big_endian),
             0x08: Identifier("STATUS", Status),
         },
@@ -180,7 +204,7 @@ MAP: dict[int, MessageMap] = {
     0x0E: {
         "name": "NO_STORAGE",
         "items": {
-            0x01: Identifier("PUSH_TOKEN"),
+            0x01: Identifier("PUSH_TOKEN", b64encode_push_token),
         },
     },
 }

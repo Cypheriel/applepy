@@ -176,7 +176,7 @@ class APNSManager:
             except ssl.SSLWantReadError:
                 continue
 
-            time.sleep(0.05)
+            time.sleep(0.1)
 
     def process_commands(self: "APNSManager", queue: Queue[APNSCommand]) -> None:
         """

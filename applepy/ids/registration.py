@@ -159,6 +159,7 @@ def register(  # noqa: PLR0913 - TODO: Refactor
         **generate_auth_headers(push_key, push_cert, auth_key, auth_cert, REGISTER_KEY, push_token, 0, payload=payload),
     }
 
+    logger.debug(f"Sending request to {REGISTER_URL} via v{PROTOCOL_VERSION}.")
     logger.debug(f"Headers: {pretty_repr(headers)}")
     logger.debug(f"Payload (pre-plist): {pretty_repr(data)}")
 
@@ -192,7 +193,7 @@ def register(  # noqa: PLR0913 - TODO: Refactor
         logger.error("Certificate not included in response!")
         raise IDSAuthenticationResponseError(REGISTER_KEY, StatusCode.UNKNOWN) from e
 
-    logger.info(f"Successfully registered via '{REGISTER_URL}'.")
+    logger.info("Successfully registered.")
 
     registration_certificate = load_der_x509_certificate(certificate_response)
 

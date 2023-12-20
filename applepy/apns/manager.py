@@ -194,7 +194,8 @@ class APNSManager:
                 if message.get_item_by_alias("STATUS").value != Status.OK:
                     raise Exception("Failed to connect to APNs!")
 
-                logger.info(f"Connected to APNs via {self.courier_stream.server_hostname}!")
+                logger.info("Successfully connected to the APNs!")
+                logger.debug(f"Connected to APNs via {self.courier_stream.server_hostname}.")
                 self.push_token = message.get_item_by_alias("PUSH_TOKEN").data
 
             elif message.command_id == get_command("PUSH_NOTIFICATION"):
@@ -202,8 +203,9 @@ class APNSManager:
                 self.push_notifications.put(message)
 
             elif message.command_id == get_command("PUSH_NOTIFICATION_ACK"):
-                if message.get_item_by_alias("STATUS").value != Status.OK:
-                    logger.error(f"Possible fault with {message.name}: {message.get_item_by_alias('STATUS').value}.")
+                status = message.get_item_by_alias("STATUS").value
+                if status != Status.OK:
+                    logger.error(f"Possible fault with {message.name}: {status}")
 
             elif message.command_id == get_command("KEEP_ALIVE_CONFIRMATION") or message.command_id == get_command(
                 "NO_STORAGE",

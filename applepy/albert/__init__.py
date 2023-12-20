@@ -142,7 +142,7 @@ def request_push_cert() -> tuple[RSAPrivateKey, Certificate]:
         "FairPlaySignature": activation_signature,
     }
 
-    logger.info("Requesting push certificate from Albert...")
+    logger.info("Requesting push certificate from Albert.")
     logger.debug(f"Sending request to {ACTIVATION_URL}.")
     logger.debug(f"Request payload: {pretty_repr(payload)}")
 

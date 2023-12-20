@@ -111,6 +111,8 @@ def auth_user(
         "password": password,
     }
 
+    logger.debug(f"Sending user auth request to {ids_bag[AUTHENTICATE_USER_KEY]}.")
+
     response = requests.post(
         ids_bag[AUTHENTICATE_USER_KEY],
         data=plistlib.dumps(data),
@@ -183,7 +185,7 @@ def auth_device(profile_id: str, auth_token: str) -> tuple[RSAPrivateKey, Certif
 
     payload = plistlib.dumps(data)
 
-    logger.debug(f"Sending request to {ids_bag[AUTHENTICATE_DEVICE_KEY]} via v{PROTOCOL_VERSION}.")
+    logger.debug(f"Sending device auth request to {AUTHENTICATE_DEVICE_URL} via v{PROTOCOL_VERSION}.")
     logger.debug(f"Request payload: {pretty_repr(data)}")
 
     response = requests.post(
@@ -201,11 +203,10 @@ def auth_device(profile_id: str, auth_token: str) -> tuple[RSAPrivateKey, Certif
     if status_code != StatusCode.SUCCESS:
         raise IDSAuthenticationResponseError(AUTHENTICATE_DEVICE_KEY, status_code)
 
-    logger.info(f"Obtained certificate from {AUTHENTICATE_DEVICE_KEY}.")
-
     certificate = load_der_x509_certificate(payload["cert"])
     save_certificate(AUTH_CERT_PATH, certificate)
 
+    logger.info("Successfully obtained authentication certificate from IDS.")
     logger.debug(f"Certificate valid until {certificate.not_valid_after.astimezone()}.")
 
     return private_key, certificate
@@ -236,7 +237,7 @@ def get_handles(  # noqa: PLR0913 - TODO: Refactor
         **generate_auth_headers(push_key, push_cert, auth_key, auth_cert, GET_HANDLES_KEY, push_token),
     }
 
-    logger.debug(f"Sending request to {ids_bag[GET_HANDLES_KEY]} via v{PROTOCOL_VERSION}.")
+    logger.debug(f"Sending request to {GET_HANDLES_URL} via v{PROTOCOL_VERSION}.")
     logger.debug(f"Headers: {pretty_repr(headers)}")
 
     response = requests.get(

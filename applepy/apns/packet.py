@@ -53,7 +53,7 @@ class APNSItem:
         return transformer(self.data)
 
     @cached_property
-    def value(self: "APNSItem") -> object | bytes:
+    def value(self: "APNSItem") -> T | bytes:
         """The value of the item, transformed if a transformer exists."""
         identifier = MAP.get(self.command_id, {}).get("items", {}).get(self.item_id, None)
 

@@ -4,7 +4,6 @@ Module for interacting with Albert.
 Albert is a service provided by Apple that allows devices to request push certificates.
 This module contains functions for requesting a push certificate from Albert.
 """
-import json
 import plistlib
 import re
 from importlib import resources
@@ -26,6 +25,7 @@ from cryptography.x509 import (
     load_pem_x509_certificate,
 )
 from cryptography.x509.oid import NameOID
+from rich.pretty import pretty_repr
 
 from applepy.crypto_helper import (
     create_private_key,
@@ -144,7 +144,7 @@ def request_push_cert() -> tuple[RSAPrivateKey, Certificate]:
 
     logger.info("Requesting push certificate from Albert...")
     logger.debug(f"Sending request to {ACTIVATION_URL}.")
-    logger.debug(f"Request payload: {json.dumps(payload, indent=4)}")
+    logger.debug(f"Request payload: {pretty_repr(payload)}")
 
     response = requests.post(
         ACTIVATION_URL,

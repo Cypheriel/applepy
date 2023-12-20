@@ -1,5 +1,4 @@
 """Module containing functions for authenticating with Apple's servers."""
-import json
 import plistlib
 from base64 import b64decode
 from functools import partial
@@ -22,6 +21,7 @@ from cryptography.x509 import (
 )
 from dotenv import load_dotenv, set_key
 from pwinput import pwinput
+from rich.pretty import pretty_repr
 
 from applepy.bags import ids_bag
 from applepy.crypto_helper import (
@@ -143,7 +143,7 @@ def auth_user(
         case _:
             raise IDSAuthenticationResponseError(AUTHENTICATE_USER_KEY, status_code)
 
-    logger.debug(f"User Authentication Payload: {json.dumps(auth_payload, indent=4)}")
+    logger.debug(f"Response Payload: {pretty_repr(auth_payload)}")
 
     profile_id = auth_payload["profile-id"]
     auth_token = auth_payload["auth-token"]
@@ -184,7 +184,7 @@ def auth_device(profile_id: str, auth_token: str) -> tuple[RSAPrivateKey, Certif
     payload = plistlib.dumps(data)
 
     logger.debug(f"Sending request to {ids_bag[AUTHENTICATE_DEVICE_KEY]} via v{PROTOCOL_VERSION}.")
-    logger.debug(f"Payload: {json.dumps(data, indent=4)}")
+    logger.debug(f"Request payload: {pretty_repr(data)}")
 
     response = requests.post(
         AUTHENTICATE_DEVICE_URL,
@@ -237,7 +237,7 @@ def get_handles(  # noqa: PLR0913 - TODO: Refactor
     }
 
     logger.debug(f"Sending request to {ids_bag[GET_HANDLES_KEY]} via v{PROTOCOL_VERSION}.")
-    logger.debug(f"Headers: {json.dumps(headers, indent=4)}")
+    logger.debug(f"Headers: {pretty_repr(headers)}")
 
     response = requests.get(
         GET_HANDLES_URL,
@@ -248,7 +248,7 @@ def get_handles(  # noqa: PLR0913 - TODO: Refactor
 
     payload = plistlib.loads(response.content)
 
-    logger.debug(f"Payload: {json.dumps(payload, indent=4)}")
+    logger.debug(f"Response payload: {pretty_repr(payload)}")
 
     status_code = StatusCode(payload.get("status"))
     match status_code:

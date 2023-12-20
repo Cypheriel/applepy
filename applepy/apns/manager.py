@@ -1,6 +1,5 @@
 """Module containing logic responsible for managing the connection to the Apple Push Notification service (APNs)."""
 import gzip
-import json
 import plistlib
 import socket
 import ssl
@@ -15,6 +14,7 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.hashes import SHA1
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509 import Certificate
+from rich.pretty import pretty_repr
 
 from applepy.albert import ACTIVATION_INFO_PAYLOAD
 from applepy.apns.identifier_map import Status, get_command
@@ -277,8 +277,7 @@ class APNSManager:
             "b": compressed_payload,
         }
 
-        logger.debug(f"Headers: {json.dumps(headers, indent=4)}")
-        logger.debug(f"Payload (pre-plist): {json.dumps(data, indent=4)}")
-        logger.debug(f"Request: {json.dumps(request, indent=4)}")
+        logger.debug(f"Headers: {pretty_repr(headers)}")
+        logger.debug(f"Payload (pre-plist): {pretty_repr(data)}")
 
         return self.send_notification(plistlib.dumps(request, fmt=plistlib.FMT_BINARY))

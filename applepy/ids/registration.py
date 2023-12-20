@@ -1,5 +1,4 @@
 """Registration with Apple's Identity Services."""
-import json
 import plistlib
 from base64 import b64decode
 from logging import getLogger
@@ -11,6 +10,7 @@ import requests
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.x509 import Certificate, load_der_x509_certificate
+from rich.pretty import pretty_repr
 
 from applepy.albert import ACTIVATION_INFO_PAYLOAD
 from applepy.bags import ids_bag
@@ -159,8 +159,8 @@ def register(  # noqa: PLR0913 - TODO: Refactor
         **generate_auth_headers(push_key, push_cert, auth_key, auth_cert, REGISTER_KEY, push_token, 0, payload=payload),
     }
 
-    logger.debug(f"Headers: {json.dumps(headers, indent=4)}")
-    logger.debug(f"Payload (pre-plist): {json.dumps(data, indent=4)}")
+    logger.debug(f"Headers: {pretty_repr(headers)}")
+    logger.debug(f"Payload (pre-plist): {pretty_repr(data)}")
 
     response = requests.post(
         REGISTER_URL,
@@ -171,7 +171,7 @@ def register(  # noqa: PLR0913 - TODO: Refactor
     )
 
     response_data = plistlib.loads(response.content)
-    logger.debug(f"Response: {json.dumps(response_data, indent=4)}")
+    logger.debug(f"Response payload: {pretty_repr(response_data)}")
 
     status_code = StatusCode(response_data["status"])
     match status_code:

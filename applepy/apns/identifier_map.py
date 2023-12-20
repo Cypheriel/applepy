@@ -158,7 +158,7 @@ MAP: dict[int, MessageMap] = {
             0x03: Identifier("PAYLOAD", extract_payload),
             0x04: Identifier("MESSAGE_ID", big_endian),
             0x05: Identifier("EXPIRATION_DATE", to_datetime_ms),
-            0x06: Identifier("MESSAGE_TIME_NS", to_datetime_ns),
+            0x06: Identifier("MESSAGE_TIME", to_datetime_ns),
             # 0x07
             0x09: Identifier("STORAGE_FLAGS", to_binary_repr),  # Requires verification
             0x0D: Identifier("PRIORITY", big_endian),  # Requires verification

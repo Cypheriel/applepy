@@ -1,4 +1,8 @@
-"""Module containing APNs packet serialization and deserialization classes."""
+"""
+Module containing APNs packet serialization and deserialization classes.
+
+See also: https://theapplewiki.com/wiki/Apple_Push_Notification_Service
+"""
 from dataclasses import dataclass
 from functools import cached_property
 from io import BytesIO

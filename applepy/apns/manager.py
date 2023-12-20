@@ -192,7 +192,7 @@ class APNSManager:
                     raise Exception("Failed to connect to APNs!")
 
                 logger.info(f"Connected to APNs via {self.courier_stream.server_hostname}!")
-                self.push_token = message.get_item_by_alias("PUSH_TOKEN").value
+                self.push_token = message.get_item_by_alias("PUSH_TOKEN").data
 
             elif message.command_id == get_command("PUSH_NOTIFICATION"):
                 self.send_notification_ack(message.get_item_by_alias("MESSAGE_ID").value)

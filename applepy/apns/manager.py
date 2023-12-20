@@ -100,7 +100,7 @@ class APNSManager:
             command_id=get_command("PUSH_TOPICS"),
             items=[
                 APNSItem(0x01, self.push_token),
-                *(APNSItem(0x02, sha1(topic.encode()).digest()) for topic in topics),  # noqa: S324
+                *(APNSItem(0x02, sha1(topic.encode(), usedforsecurity=False).digest()) for topic in topics),
             ],
         ).write(self.courier_stream)
 
@@ -116,7 +116,7 @@ class APNSManager:
         APNSCommand(
             command_id=get_command("PUSH_NOTIFICATION"),
             items=[
-                APNSItem(0x01, sha1(self.selected_topic.encode()).digest()),  # noqa: S324
+                APNSItem(0x01, sha1(self.selected_topic.encode(), usedforsecurity=False).digest()),
                 APNSItem(0x02, self.push_token),
                 APNSItem(0x03, payload),
                 APNSItem(0x04, message_id),

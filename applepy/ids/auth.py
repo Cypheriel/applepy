@@ -114,7 +114,7 @@ def auth_user(
     logger.debug(f"Sending user auth request to {ids_bag[AUTHENTICATE_USER_KEY]}.")
 
     response = requests.post(
-        ids_bag[AUTHENTICATE_USER_KEY],
+        AUTHENTICATE_USER_URL,
         data=plistlib.dumps(data),
         verify=False,  # noqa: S501
         timeout=10,

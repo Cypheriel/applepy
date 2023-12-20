@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
 from functools import partial
-from typing import Any, Callable
+from typing import Any, Callable, TypedDict
 
 from cryptography.x509 import load_der_x509_certificate
 
@@ -50,9 +50,9 @@ def to_binary_repr(data: bytes) -> str:
     return " ".join(f"{bin(i)[2:]:>08}" for i in data)
 
 
-def _to_datetime(data: bytes, ms=False, ns=False) -> datetime:
-    conversion_factor = 1_000_000 if ns else 1_000 if ms else 1
+def _to_datetime(data: bytes, ms: bool = False, ns: bool = False) -> datetime:
     """Convert a byte string to a datetime object."""
+    conversion_factor = 1_000_000_000 if ns else 1_000 if ms else 1
     return datetime.utcfromtimestamp(big_endian(data) / conversion_factor)
 
 
@@ -68,12 +68,17 @@ def to_timedelta(data: bytes) -> timedelta:
 def extract_payload(data: bytes) -> dict:
     """Extract the payload from a PUSH_NOTIFICATION item."""
     plist = plistlib.loads(data)
-    decompressed_plist = plistlib.loads(gzip.decompress(plist["b"]))
-    return decompressed_plist
+    return plistlib.loads(gzip.decompress(plist["b"]))
 
+
+class MessageMap(TypedDict):
     """Type definition for the message map."""
 
-MAP = {
+    name: str
+    items: dict[int, Identifier]
+
+
+MAP: dict[int, MessageMap] = {
     0x07: {
         "name": "CONNECT",
         "items": {
@@ -128,8 +133,8 @@ MAP = {
             0x02: Identifier("TOPIC/PUSH_TOKEN"),
             0x03: Identifier("PAYLOAD", extract_payload),
             0x04: Identifier("MESSAGE_ID", big_endian),
-            0x05: Identifier("EXPIRATION_DATE"),
-            0x06: Identifier("MESSAGE_TIME_NS"),
+            0x05: Identifier("EXPIRATION_DATE", to_datetime_ms),
+            0x06: Identifier("MESSAGE_TIME_NS", to_datetime_ns),
             # 0x07
             0x09: Identifier("STORAGE_FLAGS", to_binary_repr),  # Requires verification
             0x0D: Identifier("PRIORITY", big_endian),  # Requires verification
@@ -150,18 +155,18 @@ MAP = {
         },
     },
     0x0C: {
-        "name": "KEEPALIVE",
+        "name": "KEEP_ALIVE",
         "items": {
             0x01: Identifier("CARRIER", decode),  # Requires verification
             0x02: Identifier("OS_VERSION", decode),  # Requires verification
             0x03: Identifier("OS_BUILD", decode),  # Requires verification
             0x04: Identifier("HARDWARE_VERSION", decode),  # Requires verification
-            0x05: Identifier("KEEPALIVE_INTERVAL", to_timedelta),  # Requires verification
+            0x05: Identifier("KEEP_ALIVE_INTERVAL", to_timedelta),  # Requires verification
             0x06: Identifier("DELAYED_RESPONSE_INTERVAL", to_timedelta),  # Requires verification
         },
     },
     0x0D: {
-        "name": "KEEPALIVE_CONFIRMATION",
+        "name": "KEEP_ALIVE_CONFIRMATION",
         "items": {
             0x01: Identifier("STATUS", Status),
         },
@@ -179,6 +184,7 @@ MAP = {
         },
     },
 }
+"""Map of command identifiers to their semantic aliases and supported items with their aliases and data transformers."""
 
 
 def _get_name(command_id: int) -> str:

@@ -11,7 +11,7 @@ from cryptography.x509 import Certificate
 from applepy.crypto_helper import strip_pem
 
 
-def to_length_value(data: bytes, length: int = 4):
+def to_length_value(data: bytes, length: int = 4) -> bytes:
     """Prepend the length of the data to the data."""
     return len(data).to_bytes(length, "big") + data
 
@@ -21,7 +21,7 @@ def _generate_payload(
     query_string: str | None = None,
     payload: bytes | None = None,
     push_token: bytes | None = None,
-):
+) -> tuple[bytes, bytes]:
     """Generate a nonce and payload."""
     bag_key = bag_key or ""
     query_string = query_string or ""
@@ -46,14 +46,14 @@ def generate_signed_payload(
     query_string: str | None = None,
     payload: bytes | None = None,
     push_token: bytes | None = None,
-):
+) -> tuple[bytes, bytes]:
     """Generate a signed payload."""
     nonce, payload = _generate_payload(bag_key, query_string, payload, push_token)
-    signed_payload = b64encode(b"\x01\x01" + private_key.sign(payload, PKCS1v15(), SHA1()))
+    signed_payload = b64encode(b"\x01\x01" + private_key.sign(payload, PKCS1v15(), SHA1()))  # noqa: S303
     return nonce, signed_payload
 
 
-def generate_auth_headers(
+def generate_auth_headers(  # noqa: PLR0913 - TODO: Refactor
     push_key: RSAPrivateKey,
     push_cert: Certificate,
     auth_key: RSAPrivateKey,
@@ -62,7 +62,7 @@ def generate_auth_headers(
     push_token: bytes,
     auth_suffix_number: int | None = None,
     payload: bytes | None = None,
-):
+) -> dict[str, bytes]:
     """Generate authentication headers."""
     push_nonce, push_sig = generate_signed_payload(
         private_key=push_key,
@@ -94,7 +94,7 @@ def generate_id_headers(
     bag_key: str,
     push_token: bytes,
     payload: bytes | None = None,
-):
+) -> dict[str, bytes]:
     """Generate identification headers for some IDS requests."""
     nonce, sig = generate_signed_payload(
         private_key=auth_key,

@@ -34,24 +34,44 @@ from applepy.crypto_helper import (
     save_certificate,
     save_csr,
 )
+from applepy.data_dirs import USER_DATA_DIR
 
-ALBERT_ROOT: Final = resources.files(__package__)
+RESOURCES_ROOT = resources.files(__package__)
 
-CRYPTO_ASSETS_DIR: Final = ALBERT_ROOT / "crypto_assets"
+LOCAL_FAIRPLAY_PRIVATE_KEY_PATH: Final = RESOURCES_ROOT / "fairplay.key"
+LOCAL_FAIRPLAY_CERT_CHAIN_PATH: Final = RESOURCES_ROOT / "fairplay-chain.crt"
 
-FAIRPLAY_PRIVATE_KEY: Final = read_private_key(CRYPTO_ASSETS_DIR / "fairplay.key")
-FAIRPLAY_CERT_CHAIN: Final = (CRYPTO_ASSETS_DIR / "fairplay-chain.crt").read_bytes()
+CRYPTO_ASSETS_DIR: Final = USER_DATA_DIR / "Albert Credentials"
+CRYPTO_ASSETS_DIR.mkdir(parents=True, exist_ok=True)
+
+FAIRPLAY_PRIVATE_KEY_PATH: Final = CRYPTO_ASSETS_DIR / "fairplay.key"
+FAIRPLAY_CERT_CHAIN_PATH: Final = CRYPTO_ASSETS_DIR / "fairplay-chain.crt"
 DEVICE_KEY_PATH: Final = CRYPTO_ASSETS_DIR / "device.key"
 DEVICE_CSR_PATH: Final = CRYPTO_ASSETS_DIR / "device.csr"
 DEVICE_CERTIFICATE_PATH: Final = CRYPTO_ASSETS_DIR / "device.crt"
 
+logger = getLogger(__name__)
+
+if not FAIRPLAY_PRIVATE_KEY_PATH.is_file():
+    logger.info("FairPlay private key not found in user data directory, copying from resources.")
+    logger.debug(f"FairPlay private key path: {FAIRPLAY_PRIVATE_KEY_PATH}")
+
+    with FAIRPLAY_PRIVATE_KEY_PATH.open("wb") as f:
+        f.write(LOCAL_FAIRPLAY_PRIVATE_KEY_PATH.read_bytes())
+
+if not FAIRPLAY_CERT_CHAIN_PATH.is_file():
+    logger.info("FairPlay certificate chain not found in user data directory, copying from resources.")
+    logger.debug(f"FairPlay certificate chain path: {FAIRPLAY_CERT_CHAIN_PATH}")
+
+    with FAIRPLAY_CERT_CHAIN_PATH.open("wb") as f:
+        f.write(LOCAL_FAIRPLAY_CERT_CHAIN_PATH.read_bytes())
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-
-if not FAIRPLAY_PRIVATE_KEY:
+if not FAIRPLAY_PRIVATE_KEY_PATH.is_file():
     raise FileNotFoundError("FairPlay private key not found!")
 
-if not FAIRPLAY_CERT_CHAIN:
+if not FAIRPLAY_CERT_CHAIN_PATH.is_file():
     raise FileNotFoundError("FairPlay certificate chain not found!")
 
 
@@ -83,20 +103,20 @@ CSR: Final = read_csr(DEVICE_CSR_PATH) or _generate_device_csr(PRIVATE_KEY)
 ACTIVATION_INFO_PAYLOAD: Final = {
     "ActivationRandomness": str(uuid4()),
     "ActivationState": "Unactivated",
-    "BuildVersion": "23C64",
     "DeviceCertRequest": CSR.public_bytes(Encoding.PEM),
     "DeviceClass": "MacOS",
-    "ProductType": "MacBookAir8,1",
-    "ProductVersion": "14.2",
-    "SerialNumber": "CYT1YMJK7N",
+    "ProductType": "Macmini7,1",
+    "ProductVersion": "12.7.2",
+    "BuildVersion": "21G1974",
+    "SerialNumber": "C02WP16GJ1GJ",
     "UniqueDeviceID": UID,
 }
 
 logger = getLogger(__name__)
 
 
-class AlbertException(Exception):
-    ...
+class AlbertError(Exception):
+    """Semantic base exception for Albert-related errors."""
 
 
 def request_push_cert() -> tuple[RSAPrivateKey, Certificate]:
@@ -111,12 +131,13 @@ def request_push_cert() -> tuple[RSAPrivateKey, Certificate]:
         return private_key, certificate
 
     activation_plist = plistlib.dumps(ACTIVATION_INFO_PAYLOAD)
-    activation_signature = FAIRPLAY_PRIVATE_KEY.sign(activation_plist, PKCS1v15(), SHA1())
+    private_key = read_private_key(FAIRPLAY_PRIVATE_KEY_PATH) or create_private_key(FAIRPLAY_PRIVATE_KEY_PATH)
+    activation_signature = private_key.sign(activation_plist, PKCS1v15(), SHA1())  # noqa: S303
 
     payload = {
         "ActivationInfoComplete": True,
         "ActivationInfoXML": activation_plist,
-        "FairPlayCertChain": FAIRPLAY_CERT_CHAIN,
+        "FairPlayCertChain": FAIRPLAY_CERT_CHAIN_PATH.read_bytes(),
         "FairPlaySignature": activation_signature,
     }
 
@@ -126,10 +147,11 @@ def request_push_cert() -> tuple[RSAPrivateKey, Certificate]:
     response = requests.post(
         ACTIVATION_URL,
         data={"activation-info": plistlib.dumps(payload)},
+        timeout=10,
     )
 
     if (match := re.search(r"<Protocol>(.*)</Protocol>", response.text)) is None:
-        raise AlbertException("Certificate missing from Albert response!")
+        raise AlbertError("Certificate missing from Albert response!")
 
     protocol_data = plistlib.loads(match.group(1).encode())
 

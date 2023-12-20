@@ -1,6 +1,6 @@
 applepy/albert/crypto_assets/*
-!applepy/albert/crypto_assets/fairplay.key
-!applepy/albert/crypto_assets/fairplay-chain.crt
+!applepy/albert/fairplay.key
+!applepy/albert/fairplay-chain.crt
 
 applepy/ids/credentials/*
 

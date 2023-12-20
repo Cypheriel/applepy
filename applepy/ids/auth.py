@@ -1,10 +1,10 @@
+"""Module containing functions for authenticating with Apple's servers."""
 import plistlib
 from base64 import b64decode
 from functools import partial
 from logging import getLogger
 from os import getenv
-from random import randbytes
-from typing import Literal, Final
+from typing import Final, Literal
 
 import requests
 import urllib3
@@ -23,7 +23,14 @@ from dotenv import load_dotenv, set_key
 from pwinput import pwinput
 
 from applepy.bags import ids_bag
-from applepy.crypto_helper import create_private_key, read_certificate, read_private_key, save_certificate, strip_pem
+from applepy.crypto_helper import (
+    create_private_key,
+    randbytes,
+    read_certificate,
+    read_private_key,
+    save_certificate,
+    strip_pem,
+)
 from applepy.ids import AUTH_CERT_PATH, AUTH_KEY_PATH, IDS_DOTENV, PROTOCOL_VERSION
 from applepy.ids.payload import generate_auth_headers
 from applepy.status_codes import StatusCode
@@ -37,6 +44,8 @@ AUTHENTICATE_DEVICE_URL: Final = ids_bag[AUTHENTICATE_DEVICE_KEY]
 GET_HANDLES_KEY: Final = "id-get-handles"
 GET_HANDLES_URL: Final = ids_bag[GET_HANDLES_KEY]
 
+ALLOWED_AUTH_ATTEMPTS: Final = 3
+
 load_dotenv(IDS_DOTENV)
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -45,9 +54,9 @@ logger = getLogger(__name__)
 
 
 class IDSAuthenticationResponseError(Exception):
-    def __init__(self, location: str, status_code: StatusCode) -> None:
     """Exception raised when an IDS authentication request returns an error."""
 
+    def __init__(self: "IDSAuthenticationResponseError", location: str, status_code: StatusCode) -> None:
         """
         Initialize an IDSAuthenticationResponseError.
 
@@ -62,8 +71,8 @@ def auth_user(
     username: str = "",
     password: str = "",
     code: str = "",
-    tries: int = 0,
     force: bool = False,
+    _tries: int = 1,
 ) -> tuple[str, str]:
     """
     Authenticate the user's credentials with IDS.
@@ -84,14 +93,13 @@ def auth_user(
     if force:
         logger.info("Forcing re-authentication for user.")
 
-    reauth_user = partial(auth_user, tries=tries + 1)
+    reauth_user = partial(auth_user, _tries=_tries + 1)
 
-    if tries > 3:
+    if _tries > ALLOWED_AUTH_ATTEMPTS:
         raise Exception("Too many failed authentication attempts.")
 
     if not username or not password:
         logger.debug("Asking user for Apple ID credentials.")
-        print("Please enter your Apple ID credentials.")
 
     # TODO: Move input to main() and pass it to auth_user().
     username = username or input("Apple ID: ").strip()
@@ -105,7 +113,8 @@ def auth_user(
     response = requests.post(
         ids_bag[AUTHENTICATE_USER_KEY],
         data=plistlib.dumps(data),
-        verify=False,
+        verify=False,  # noqa: S501
+        timeout=10,
     )
     auth_payload = plistlib.loads(response.content)
 
@@ -115,20 +124,20 @@ def auth_user(
 
         case StatusCode.UNAUTHENTICATED:
             logger.debug("Sending user a 2FA code.")
-            print("A 2FA code has been sent to your device. Press ENTER for a new code.")
+            logger.info("A 2FA code has been sent to your device. Press ENTER for a new code.")
             code = input("Enter 2FA code: ").strip()
-            if code == "":
+            if not code:
                 logger.debug("User requested a new 2FA code.")
-                return reauth_user(username, password, tries=tries - 1)
+                return reauth_user(username, password, tries=_tries - 1)
             return reauth_user(username, password, code=code)
 
         case StatusCode.ACTION_AUTHENTICATION_FAILED:
             if code:
                 logger.error("Invalid 2FA code. Please try again.")
                 return reauth_user(username, password)
-            else:
-                logger.error("Invalid username or password. Please try again.")
-                return reauth_user()
+
+            logger.error("Invalid username or password. Please try again.")
+            return reauth_user()
 
         case _:
             raise IDSAuthenticationResponseError(AUTHENTICATE_USER_KEY, status_code)
@@ -177,10 +186,11 @@ def auth_device(profile_id: str, auth_token: str) -> tuple[RSAPrivateKey, Certif
     response = requests.post(
         AUTHENTICATE_DEVICE_URL,
         headers={
-            "x-protocol-version": PROTOCOL_VERSION,
+            "x-protocol-version": "1630",
         },
         data=payload,
-        verify=False,
+        verify=False,  # noqa: S501
+        timeout=10,
     )
 
     payload = plistlib.loads(response.content)
@@ -198,7 +208,7 @@ def auth_device(profile_id: str, auth_token: str) -> tuple[RSAPrivateKey, Certif
     return private_key, certificate
 
 
-def get_handles(
+def get_handles(  # noqa: PLR0913 - TODO: Refactor
     profile_id: str,
     push_key: RSAPrivateKey,
     push_cert: Certificate,
@@ -226,7 +236,13 @@ def get_handles(
     logger.debug(f"Sending request to {ids_bag[GET_HANDLES_KEY]} via v{PROTOCOL_VERSION}.")
     logger.debug(f"{headers = }")
 
-    response = requests.get(GET_HANDLES_URL, headers=headers, verify=False)
+    response = requests.get(
+        GET_HANDLES_URL,
+        headers=headers,
+        verify=False,  # noqa: S501
+        timeout=10,
+    )
+
     payload = plistlib.loads(response.content)
 
     status_code = StatusCode(payload.get("status"))

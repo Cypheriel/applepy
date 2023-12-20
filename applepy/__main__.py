@@ -1,26 +1,35 @@
 """Entry point for the application script."""
 import os
 import sys
+import time
 from logging import getLogger
+from queue import Queue
+from threading import Thread
 from typing import Callable
 
-from rich.prompt import Confirm
+from rich.prompt import Confirm, Prompt
 
 from applepy.albert import request_push_cert
 from applepy.apns.manager import APNSManager
+from applepy.apns.packet import APNSCommand
 from applepy.bags import apns_bag, ids_bag
 from applepy.ids.auth import auth_device, auth_user, get_handles
 from applepy.ids.registration import register
-from applepy.init_logging import setup_logging, log_file, upload_log, file_handler
+from applepy.init_logging import LOG_FILE_PATH, setup_logging, upload_log
+from applepy.status_codes import StatusCode
 
-setup_logging()
-logger = getLogger("applepy")
+APNS_TIMEOUT = 30
+
+file_handler = setup_logging()
+logger = getLogger(__name__)
 apns = APNSManager()
 
 
 def entrypoint(func: Callable[..., int]) -> None:
-    logger.info(f"Writing log to temporary file: {log_file.name}")
     """General boilerplate for entrypoint functions such as `main()`."""
+    logger.info(f"Writing log to temporary file: {LOG_FILE_PATH.name}")
+
+    exit_code = 0
 
     try:
         exit_code = func() or 0
@@ -29,23 +38,23 @@ def entrypoint(func: Callable[..., int]) -> None:
         exit_code = 127
 
     except Exception as e:
-        logger.error("Unhandled exception: ", exc_info=e)
+        logger.exception(e)
         exit_code = 1
 
-    if Confirm.ask("Upload log file?") or os.getenv("UPLOAD_LOG") == "1":
-        logger.warning("Log file may contain sensitive information. Please be cautious about who you share this with!")
-        url = upload_log()
-        print(f"Uploaded log: {url}")
+    finally:
+        to_upload_log = {"0": False, "1": False}.get(os.getenv("UPLOAD_LOG"), None)
+        if to_upload_log in (True, None):
+            logger.warning(
+                "Log file may contain sensitive information. Please be cautious about who you share this with!",
+            )
+        if (to_upload_log is True) or ((to_upload_log is None) and Confirm.ask("Upload log file?")):
+            url = upload_log()
+            logger.info(f"Uploaded log: {url}")
 
-    apns.courier_stream.close()
+        apns.courier_stream.close()
 
-    logger.info(f"Removing temporary log file: {log_file.name}")
-
-    file_handler.close()
-    log_file.close()
-    os.remove(log_file.name)
-
-    sys.exit(exit_code)
+        file_handler.close()
+        sys.exit(exit_code)
 
 
 @entrypoint
@@ -61,6 +70,20 @@ def main(*_args: str, **_kwargs: str) -> int:
     # Send a CONNECT packet to APNs.
     apns.connect(push_key, push_cert)
 
+    # Set up APNs watchdog and processing threads
+    command_queue: Queue[APNSCommand] = Queue()
+    watchdog = Thread(target=apns.watchdog, args=(command_queue,), daemon=True)
+    processor = Thread(target=apns.process_commands, args=(command_queue,), daemon=True)
+
+    watchdog.start()
+    processor.start()
+
+    # Wait for the APNs connection to be established, as signaled by the receipt of a push token.
+    start_time = time.time()
+    while not apns.push_token:
+        if time.time() - start_time > APNS_TIMEOUT:
+            raise TimeoutError("Failed to obtain push token after 30 seconds.")
+
     # Filter the APNs connection to only receive notifications for the Madrid topic.
     apns.filter_topics(["com.apple.madrid"])
 
@@ -75,8 +98,18 @@ def main(*_args: str, **_kwargs: str) -> int:
 
     # Complete device registration using most collected credentials.
     registration_cert = register(profile_id, push_key, push_cert, auth_key, auth_cert, apns.push_token, handles)
-    results = apns.query(handles[0]["uri"], [input("Handle: ")], auth_key, registration_cert)
-    logger.info(f"Received response from APNs query: {results}")
 
     # Query the identities tied to a handle of the user's choice (or the own user if "self" is provided).
+    handle_to_test = handle if (handle := input("Handle: ").strip().lower()) != "self" else handles[0]["uri"]
+    apns.query(handles[0]["uri"], [handle_to_test], auth_key, registration_cert)
+
+    # Attempt to retrieve the response to the query. This will block until a response is received.
+    query_response = apns.push_notifications.get()
+
+    query_status = StatusCode(query_response.get_item_by_alias("PAYLOAD").value.get("status", -1))
+    if query_status != StatusCode.SUCCESS:
+        logger.error(f"Query failed with status code: {query_status}")
+        return 1
+
+    Prompt.ask("Press [Enter] to exit...")
     return 0

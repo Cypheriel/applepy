@@ -6,7 +6,7 @@ import ssl
 import time
 from hashlib import sha1
 from logging import getLogger
-from random import randbytes, randint
+from queue import Queue
 from typing import Final
 
 from cryptography.hazmat.primitives.asymmetric.padding import PKCS1v15
@@ -17,16 +17,16 @@ from cryptography.x509 import Certificate
 
 from applepy.albert import ACTIVATION_INFO_PAYLOAD
 from applepy.apns.identifier_map import Status, get_command
-from applepy.apns.packet import APNSItem, APNSMessage
+from applepy.apns.packet import APNSCommand, APNSItem
 from applepy.bags import apns_bag, ids_bag
+from applepy.crypto_helper import randbytes, randint
 from applepy.ids import PROTOCOL_VERSION
 from applepy.ids.payload import generate_id_headers
-from applepy.status_codes import StatusCode
 
 # noinspection SpellCheckingInspection
 COURIER_ID: Final = randint(1, apns_bag.get("APNSCourierHostcount", 50))
-COURIER_HOSTNAME: Final = apns_bag.get(f"APNSCourierHostname", "courier.push.apple.com")
-COURIER_HOST: Final = f"{COURIER_ID:02}-{COURIER_HOSTNAME}"
+COURIER_HOSTNAME: Final = apns_bag.get("APNSCourierHostname", "courier.push.apple.com")
+COURIER_HOST: Final = f"{COURIER_ID}-{COURIER_HOSTNAME}"
 COURIER_PORT: Final = 5223
 
 ALPN_PROTOCOL: Final = ("apns-security-v3",)
@@ -34,14 +34,21 @@ ALPN_PROTOCOL: Final = ("apns-security-v3",)
 QUERY_KEY: Final = "id-query"
 QUERY_URL: Final = ids_bag[QUERY_KEY]
 
+KEEP_ALIVE_INTERVAL: Final = 60  # 1 minute
+
 logger = getLogger(__name__)
 
 
 class APNSManager:
     """Class whose objects are responsible for managing the connection to the Apple Push Notification service (APNs)."""
 
-    def __init__(self) -> None:
+    def __init__(self: "APNSManager") -> None:
         """Initialize an `APNSManager` object."""
+        self.push_notifications: Queue[APNSCommand] = Queue()
+        self.push_token: bytes = b""
+        self.enabled_topics: list[str] = []
+        self.selected_topic: str = "com.apple.madrid"  # TODO: Ensure this is in enabled topics
+
         sock = socket.create_connection((COURIER_HOST, COURIER_PORT))
 
         ssl_context = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
@@ -54,12 +61,13 @@ class APNSManager:
         self.courier_stream.setblocking(False)
         self.courier_stream.do_handshake()
 
-    def connect(self, push_key: RSAPrivateKey, push_cert: Certificate):
+    def connect(self: "APNSManager", push_key: RSAPrivateKey, push_cert: Certificate) -> None:
         """Connect to the APNs service."""
+        logger.info("Connecting to APNs...")
         nonce = b"\x00" + int(time.time() * 1000).to_bytes(8, "big") + randbytes(8)
-        signature = b"\x01\x01" + push_key.sign(nonce, PKCS1v15(), SHA1())
+        signature = b"\x01\x01" + push_key.sign(nonce, PKCS1v15(), SHA1())  # noqa: S303
 
-        APNSMessage(
+        APNSCommand(
             command_id=get_command("CONNECT"),
             items=[
                 APNSItem(0x02, b"\x01"),
@@ -75,65 +83,61 @@ class APNSManager:
             ],
         ).write(self.courier_stream)
 
-        self.courier_stream.setblocking(True)
-        message = APNSMessage.read(stream=self.courier_stream)
-        self.courier_stream.setblocking(False)
-
-        status = message.get_item_by_alias("STATUS") if message else None
-        if not message or status is None or status.value != Status.OK:
-            raise Exception("Failed to connect to APNs!")
-
-        self.push_token = message.get_item_by_alias("PUSH_TOKEN").value
-
-        logger.info(f"Connected to APNs via [cyan]{self.courier_stream.server_hostname}[/]!")
-
-    def filter_topics(self, topics: list[str]):
+    def filter_topics(self: "APNSManager", topics: list[str]) -> None:
         """Set the enabled APNs topics."""
         self.enabled_topics = topics
 
         # TODO: Find a better way to do this
         self.selected_topic = topics[0]
 
-        APNSMessage(
+        APNSCommand(
             command_id=get_command("PUSH_TOPICS"),
             items=[
                 APNSItem(0x01, self.push_token),
-                *(APNSItem(0x02, sha1(topic.encode()).digest()) for topic in topics),
+                *(APNSItem(0x02, sha1(topic.encode()).digest()) for topic in topics),  # noqa: S324
             ],
         ).write(self.courier_stream)
 
-    def send_message(self, topic: str, payload: bytes):
-        APNSMessage(
+    def send_notification(self: "APNSManager", payload: bytes) -> int:
         """
         Send a push notification over the APNs.
 
         :param payload: The payload to send.
         :return: The message ID of the notification that was sent.
         """
+        message_id = randbytes(4)
+
+        APNSCommand(
             command_id=get_command("PUSH_NOTIFICATION"),
             items=[
-                APNSItem(0x01, topic.encode("utf-8")),
+                APNSItem(0x01, sha1(self.selected_topic.encode()).digest()),  # noqa: S324
                 APNSItem(0x02, self.push_token),
                 APNSItem(0x03, payload),
-                APNSItem(0x04, randbytes(4)),
+                APNSItem(0x04, message_id),
             ],
         ).write(self.courier_stream)
 
-        message = APNSMessage.read(stream=self.courier_stream)
-        if message.command_id != get_command("PUSH_NOTIFICATION_ACK"):
-            raise Exception("Failed to send push notification!")
-        if not (status := message.get_item_by_alias("STATUS")) or status.value != Status.OK:
-            raise Exception("Push notification acknowledgement received with error!")
+        return int.from_bytes(message_id, "big")
 
-    def send_keepalive(self):
-        APNSMessage(
-            command_id=get_command("KEEPALIVE"),
+    def send_notification_ack(self: "APNSManager", message_id: int) -> None:
         """
         Send a push notification acknowledgement.
 
         :param message_id: The message ID of the notification to acknowledge.
         """
+        APNSCommand(
+            command_id=get_command("PUSH_NOTIFICATION_ACK"),
+            items=[
+                APNSItem(0x01, self.push_token),
+                APNSItem(0x04, message_id.to_bytes(4, "big")),
+                APNSItem(0x08, b"\x00"),
+            ],
+        ).write(self.courier_stream)
+
+    def send_keepalive(self: "APNSManager") -> None:
         """Send a keepalive command to the APNs."""
+        APNSCommand(
+            command_id=get_command("KEEP_ALIVE"),
             items=[
                 APNSItem(0x01, b"WiFi"),
                 APNSItem(0x02, ACTIVATION_INFO_PAYLOAD["ProductVersion"].encode()),
@@ -141,66 +145,98 @@ class APNSManager:
                 APNSItem(0x04, ACTIVATION_INFO_PAYLOAD["ProductType"].encode()),
             ],
         ).write(self.courier_stream)
-        self.courier_stream.setblocking(True)
-        APNSMessage.read(stream=self.courier_stream)
-        self.courier_stream.setblocking(False)
 
-    def watchdog(self):
-        # TODO: Proper threading and signal handling
+    def watchdog(self: "APNSManager", queue: Queue[APNSCommand]) -> None:
         """
         Watch for incoming commands from the APNs.
+
+        :param queue: The queue to put incoming commands into.
         """
         start_time = time.time()
-        keep_alive_interval = 60  # 1 minute
         first_run = True
         while True:
             elapsed_time = time.time() - start_time
-            if elapsed_time >= keep_alive_interval or first_run:
+            if first_run or elapsed_time >= KEEP_ALIVE_INTERVAL:
                 first_run = False
                 self.send_keepalive()
                 start_time = time.time()
 
-            time.sleep(0.050)
-
             try:
-                APNSMessage.read(stream=self.courier_stream)
+                self.courier_stream.setblocking(True)
+                message = APNSCommand.read(stream=self.courier_stream)
+                self.courier_stream.setblocking(False)
+                queue.put(message)
 
             except ssl.SSLWantReadError:
                 continue
 
-    def send_notification(self, payload: bytes):
-        APNSMessage(
-            command_id=get_command("PUSH_NOTIFICATION"),
-            items=[
-                APNSItem(0x01, sha1(self.selected_topic.encode()).digest()),
-                APNSItem(0x02, self.push_token),
-                APNSItem(0x03, payload),
-                APNSItem(0x04, randbytes(4)),
-            ],
-        ).write(self.courier_stream)
+            time.sleep(0.05)
 
-        ack = self.wait_for_message(get_command("PUSH_NOTIFICATION_ACK"))
-        if ack.get_item_by_alias("STATUS").value != Status.OK:
-            logger.debug(f"{ack = }")
-            raise Exception("Failed to send push notification!")
+    def process_commands(self: "APNSManager", queue: Queue[APNSCommand]) -> None:
+        """
+        Process incoming commands from the APNs.
 
-        return ack
+        :param queue: The queue to get incoming commands from.
+        """
+        while True:
+            message = queue.get()
 
-    def wait_for_message(self, command_id: int, timeout: int = 10) -> APNSMessage | None:
-        # TODO: *Don't* consume the message if it's not the one we're waiting for
-        acknowledged = False
-        try:
-            start_time = time.time()
-            while not acknowledged or time.time() - start_time >= timeout:
-                self.courier_stream.setblocking(True)
-                message = APNSMessage.read(stream=self.courier_stream)
-                self.courier_stream.setblocking(False)
-                if message.command_id == command_id:
-                    return message
-        except ssl.SSLWantReadError:
-            return None
+            if message.command_id == get_command("CONNECT_RESPONSE"):
+                if message.get_item_by_alias("STATUS").value != Status.OK:
+                    raise Exception("Failed to connect to APNs!")
 
-    def query(self, handle: str, uris: list[str], auth_key: RSAPrivateKey, registration_cert: Certificate):
+                logger.info(f"Connected to APNs via {self.courier_stream.server_hostname}!")
+                self.push_token = message.get_item_by_alias("PUSH_TOKEN").value
+
+            elif message.command_id == get_command("PUSH_NOTIFICATION"):
+                self.send_notification_ack(message.get_item_by_alias("MESSAGE_ID").value)
+                self.push_notifications.put(message)
+
+            elif message.command_id == get_command("PUSH_NOTIFICATION_ACK"):
+                if message.get_item_by_alias("STATUS").value != Status.OK:
+                    logger.error(f"Possible fault with {message.name}: {message.get_item_by_alias('STATUS').value}")
+
+            elif message.command_id == get_command("KEEP_ALIVE_CONFIRMATION") or message.command_id == get_command(
+                "NO_STORAGE",
+            ):
+                continue
+
+            time.sleep(0.1)
+
+    def wait_for_message(self: "APNSManager", target_message_id: int, timeout: int = 30) -> APNSCommand:
+        """
+        Wait for a message with a given message ID.
+
+        WARNING: This method is presumably useless.
+        :param target_message_id: The message ID to wait for.
+        :param timeout: The timeout time in seconds.
+        :return: The notification with the given message ID.
+        """
+        start_time = time.time()
+        while timeout > time.time() - start_time:
+            time.sleep(0.1)
+            command = self.push_notifications.get()
+            command_id = command.command_id
+            if command_id != get_command("PUSH_NOTIFICATION"):
+                continue
+
+            message_id = command.get_item_by_alias("MESSAGE_ID")
+
+            if not message_id or message_id != target_message_id:
+                self.push_notifications.put(command)
+                continue
+
+            return command
+
+        raise TimeoutError(f"Timed out waiting for message {target_message_id}!")
+
+    def query(
+        self: "APNSManager",
+        handle: str,
+        uris: list[str],
+        auth_key: RSAPrivateKey,
+        registration_cert: Certificate,
+    ) -> int:
         """
         Send an APNs participant handle query.
 
@@ -237,18 +273,4 @@ class APNSManager:
 
         logger.debug(f"{request = }")
 
-        ack = self.send_notification(plistlib.dumps(request, fmt=plistlib.FMT_BINARY))
-        if ack.get_item_by_alias("STATUS").value != Status.OK:
-            logger.debug(f"{ack = }")
-            raise Exception("Query failed!")
-
-        response = self.wait_for_message(get_command("PUSH_NOTIFICATION"))
-
-        response_payload = response.get_item_by_alias("PAYLOAD")
-        response_plist = response_payload.value
-        logger.debug(f"{plistlib.loads(gzip.decompress(plistlib.loads(response_payload.data)['b'])) = }")
-
-        if (status_code := StatusCode(response_plist["status"])) != StatusCode.SUCCESS:
-            raise Exception(f"Query failed with {status_code}.")
-
-        return response_plist["results"]
+        return self.send_notification(plistlib.dumps(request, fmt=plistlib.FMT_BINARY))

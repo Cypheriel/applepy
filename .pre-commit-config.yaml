@@ -14,10 +14,10 @@ repos:
     hooks:
       - id: ruff
 
-  - repo: https://github.com/RobertCraigie/pyright-python
-    rev: v1.1.330
-    hooks:
-    - id: pyright
+  # - repo: https://github.com/RobertCraigie/pyright-python
+  #   rev: v1.1.330
+  #   hooks:
+  #   - id: pyright
 
   - repo: https://github.com/compilerla/conventional-pre-commit
     rev: v3.0.0

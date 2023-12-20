@@ -1,10 +1,9 @@
 """Registration with Apple's Identity Services."""
 import plistlib
-import random
 from base64 import b64decode
 from logging import getLogger
 from string import ascii_lowercase
-from typing import Literal, Final
+from typing import Final, Literal
 from uuid import UUID
 
 import requests
@@ -15,6 +14,7 @@ from cryptography.x509 import Certificate, load_der_x509_certificate
 from applepy.albert import ACTIVATION_INFO_PAYLOAD
 from applepy.bags import ids_bag
 from applepy.crypto_helper import (
+    choices,
     create_private_key,
     create_public_key,
     read_certificate,
@@ -70,7 +70,7 @@ def _create_identity_key() -> bytes:
 
 
 # noinspection SpellCheckingInspection
-def register(
+def register(  # noqa: PLR0913 - TODO: Refactor
     profile_id: str,
     push_key: RSAPrivateKey,
     push_cert: Certificate,
@@ -78,21 +78,27 @@ def register(
     auth_cert: Certificate,
     push_token: bytes,
     handles: list[dict[Literal["uri"], str]],
-):
+) -> Certificate:
     """Attempt to register a device with Apple's Identity Services."""
     if registration_certificate := read_certificate(REGISTRATION_CERT_PATH):
         logger.info("Using existing registration certificate")
         return registration_certificate
 
     logger.info("Requesting validation data...")
-    validation_response = requests.get(VALIDATION_URL)
+
+    validation_response = requests.get(
+        VALIDATION_URL,
+        timeout=(5, 30),  # This API seems to be remarkably slow
+    )
+
     validation_data = validation_response.content.decode()
+
     logger.info("Validation data received.")
     logger.debug(f"{validation_data = }")
 
     data = {
         "language": "en-US",
-        "device-name": f"{''.join(random.choices(ascii_lowercase, k=12))}'s Mac",
+        "device-name": f"{''.join(choices(ascii_lowercase, k=12))}'s Mac",
         "hardware-version": ACTIVATION_INFO_PAYLOAD["ProductType"],
         "os-version": ACTIVATION_INFO_PAYLOAD["ProductVersion"],
         "software-version": ACTIVATION_INFO_PAYLOAD["BuildVersion"],
@@ -148,22 +154,19 @@ def register(
     payload = plistlib.dumps(data)
 
     headers = {
-        "user-agent": (
-            f"com.apple.madrid-lookup [macOS,"
-            f"{ACTIVATION_INFO_PAYLOAD['ProductVersion']},"
-            f"{ACTIVATION_INFO_PAYLOAD['BuildVersion']},"
-            f"{ACTIVATION_INFO_PAYLOAD['ProductType']}]"
-        ),
         "x-protocol-version": PROTOCOL_VERSION,
         "x-auth-user-id-0": profile_id,
         **generate_auth_headers(push_key, push_cert, auth_key, auth_cert, REGISTER_KEY, push_token, 0, payload=payload),
     }
 
+    logger.debug(f"{headers = }")
+
     response = requests.post(
         REGISTER_URL,
         headers=headers,
         data=payload,
-        verify=False,
+        verify=False,  # noqa: S501
+        timeout=10,
     )
 
     response_data = plistlib.loads(response.content)
@@ -184,9 +187,9 @@ def register(
     try:
         certificate_response = response_data["services"][0]["users"][0]["cert"]
 
-    except KeyError:
+    except KeyError as e:
         logger.error("Certificate not included in response!")
-        raise IDSAuthenticationResponseError(REGISTER_KEY, StatusCode.UNKNOWN)
+        raise IDSAuthenticationResponseError(REGISTER_KEY, StatusCode.UNKNOWN) from e
 
     logger.info(f"Successfully registered via '{REGISTER_URL}'.")
 

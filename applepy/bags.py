@@ -11,8 +11,13 @@ logger = getLogger(__name__)
 
 @lru_cache
 def get_apns_bag() -> dict[str, str]:
-    response = requests.get("https://init.push.apple.com/bag", verify=False)
     """Fetch Apple's APNs bag."""
+    response = requests.get(
+        "https://init.push.apple.com/bag",
+        verify=False,  # noqa: S501
+        timeout=10,
+    )
+
     if not response.ok:
         raise Exception(f"Failed to fetch APNs bag! Status: {response.status_code}")
 
@@ -21,9 +26,14 @@ def get_apns_bag() -> dict[str, str]:
 
 @lru_cache
 def get_ids_bag() -> dict[str, str]:
-    response = requests.get("https://init.ess.apple.com/WebObjects/VCInit.woa/wa/getBag?ix=3", verify=False)
-    if response.status_code != 200:
     """Fetch Apple's IDS bag."""
+    response = requests.get(
+        "https://init.ess.apple.com/WebObjects/VCInit.woa/wa/getBag?ix=3",
+        verify=False,  # noqa: S501
+        timeout=10,
+    )
+
+    if not response.ok:
         raise Exception("Failed to fetch IDS bag!")
 
     return plistlib.loads(plistlib.loads(response.content)["bag"])

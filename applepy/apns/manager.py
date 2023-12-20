@@ -42,6 +42,12 @@ logger = getLogger(__name__)
 class APNSManager:
     """Class whose objects are responsible for managing the connection to the Apple Push Notification service (APNs)."""
 
+    push_notifications: Queue[APNSCommand]
+    push_token: bytes
+    enabled_topics: list[str]
+    selected_topic: str
+    courier_stream: ssl.SSLSocket
+
     def __init__(self: "APNSManager") -> None:
         """Initialize an `APNSManager` object."""
         self.push_notifications: Queue[APNSCommand] = Queue()

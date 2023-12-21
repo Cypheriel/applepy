@@ -4,6 +4,10 @@ from logging import getLogger
 from types import TracebackType
 from typing import Type
 
+from applepy.data_dirs import USER_DATA_DIR
+
+CONFIG_PATH = USER_DATA_DIR / "config.json"
+
 logger = getLogger(__name__)
 
 

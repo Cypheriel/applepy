@@ -10,10 +10,12 @@ from typing import Callable
 from rich.pretty import pretty_repr
 from rich.prompt import Confirm, Prompt
 
+from applepy import CONFIG_PATH
 from applepy.albert import request_push_cert
 from applepy.apns.manager import APNSManager
 from applepy.apns.packet import APNSCommand
 from applepy.bags import apns_bag, ids_bag
+from applepy.config_parser import import_credentials
 from applepy.data_dirs import USER_DATA_DIR
 from applepy.ids.auth import auth_device, auth_user, get_handles
 from applepy.ids.registration import register
@@ -63,6 +65,9 @@ def entrypoint(func: Callable[..., int]) -> None:
 def main(*_args: str, **_kwargs: str) -> int:
     """Entry point function this package."""
     USER_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Attempt to import credentials from a pypush-style config.json file.
+    import_credentials(CONFIG_PATH)
 
     # Obtain the APNs and IDS bags which contain varying endpoints used by various Apple services.
     logger.debug(f"APNs bag: {pretty_repr(apns_bag)}")

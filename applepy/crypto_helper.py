@@ -23,7 +23,6 @@ T = TypeVar("T")
 
 logger = getLogger(__name__)
 
-
 SYSTEM_RANDOM = SystemRandom()
 """A system-based random for generating random values, which is more cryptographically secure than `random`."""
 randint = SYSTEM_RANDOM.randint
@@ -118,6 +117,18 @@ def read_private_key(
         raise TypeError(f"Unsupported key type {key_type}")
 
     return _read_with_transform(path, partial(load_pem_private_key, password=None))
+
+
+def save_private_key(path: Traversable, private_key: rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey) -> None:
+    """Save a private key to a path."""
+    with path.open("wb") as f:
+        f.write(
+            private_key.private_bytes(
+                encoding=Encoding.PEM,
+                format=PrivateFormat.TraditionalOpenSSL,
+                encryption_algorithm=NoEncryption(),
+            ),
+        )
 
 
 @overload

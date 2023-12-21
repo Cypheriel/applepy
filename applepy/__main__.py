@@ -114,10 +114,9 @@ def main(*_args: str, **_kwargs: str) -> int:
     registration_cert = register(profile_id, push_key, push_cert, auth_key, auth_cert, apns.push_token, handles)
 
     # Query the identities tied to a handle of the user's choice (or the own user if "self" is provided).
+    logger.info("Please enter a handle to query. Examples: `mailto:foo@bar.com`, `tel:+12223334444`, `self`")
     handle_to_test = (
-        handle
-        if (handle := Prompt.ask("Enter handle to query", choices=["<handle>", "self"]).strip().lower()) != "self"
-        else handles[0]["uri"]
+        handle if (handle := Prompt.ask("Enter handle to query:").strip().lower()) != "self" else handles[0]["uri"]
     )
     apns.query(handles[0]["uri"], [handle_to_test], auth_key, registration_cert)
 

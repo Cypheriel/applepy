@@ -121,8 +121,8 @@ def main(*_args: str, **_kwargs: str) -> int:
     )
     apns.query(handles[0]["uri"], [handle_to_test], auth_key, registration_cert)
 
-    # Attempt to retrieve the response to the query. This will block until a response is received.
-    query_response = apns.push_notifications.get()
+    # Wait for the query response to be received.
+    query_response = apns.push_notifications.get(timeout=15)
 
     query_status = StatusCode(query_response.get_item_by_alias("PAYLOAD").value.get("status", -1))
     if query_status != StatusCode.SUCCESS:

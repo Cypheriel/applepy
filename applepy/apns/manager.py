@@ -31,7 +31,7 @@ from applepy.ids.payload import generate_id_headers
 # noinspection SpellCheckingInspection
 COURIER_ID: Final = randint(1, apns_bag.get("APNSCourierHostcount", 50))
 COURIER_HOSTNAME: Final = apns_bag.get("APNSCourierHostname", "courier.push.apple.com")
-COURIER_HOST: Final = f"{COURIER_ID:02}-{COURIER_HOSTNAME}"
+COURIER_HOST: Final = f"{COURIER_ID}-{COURIER_HOSTNAME}"
 COURIER_PORT: Final = 5223
 
 ALPN_PROTOCOL: Final = ("apns-security-v3",)
@@ -80,6 +80,9 @@ class APNSManager:
         self.enabled_topics: list[str] = []
         self.selected_topic: str = "com.apple.madrid"  # TODO: Ensure this is in enabled topics
 
+        logger.info("Establishing connection with the APNs...")
+        logger.debug(f"Connection to APNs will be facilitated via {COURIER_HOST}.")
+
         sock = socket.create_connection((COURIER_HOST, COURIER_PORT))
 
         ssl_context = ssl.create_default_context(purpose=ssl.Purpose.SERVER_AUTH)
@@ -93,8 +96,7 @@ class APNSManager:
         self.courier_stream.do_handshake()
 
     def connect(self: "APNSManager", push_key: RSAPrivateKey, push_cert: Certificate) -> None:
-        """Connect to the APNs service."""
-        logger.info("Connecting to the APNs...")
+        """Connect to the APNs."""
         nonce = b"\x00" + int(time.time() * 1000).to_bytes(8, "big") + randbytes(8)
         signature = b"\x01\x01" + push_key.sign(nonce, PKCS1v15(), SHA1())  # noqa: S303
 
@@ -103,6 +105,8 @@ class APNSManager:
             logger.info("Utilizing an existing push token.")
         else:
             logger.info("Attempting to obtain a new push token.")
+
+        logger.info("Attempting connection handshake with the APNs...")
 
         APNSCommand(
             command_id=get_command("CONNECT"),
@@ -320,5 +324,6 @@ class APNSManager:
 
         logger.debug(f"Headers: {pretty_repr(headers)}")
         logger.debug(f"Payload (pre-plist): {pretty_repr(data)}")
+        logger.debug(f"Request: {pretty_repr(request)}")
 
         return self.send_notification(plistlib.dumps(request, fmt=plistlib.FMT_BINARY))

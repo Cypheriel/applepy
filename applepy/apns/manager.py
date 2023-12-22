@@ -326,4 +326,7 @@ class APNSManager:
         logger.debug(f"Payload (pre-plist): {pretty_repr(data)}")
         logger.debug(f"Request: {pretty_repr(request)}")
 
+        logger.debug(f"As plist: {plistlib.dumps(request)}")
+        logger.debug(f"As bplist: {pretty_repr(plistlib.dumps(request, fmt=plistlib.FMT_BINARY))}")
+
         return self.send_notification(plistlib.dumps(request, fmt=plistlib.FMT_BINARY))

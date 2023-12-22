@@ -186,7 +186,7 @@ def register(  # noqa: PLR0913 - TODO: Refactor
             ...
 
         case StatusCode.ACTION_RETRY_WITH_NEW_ABSINTHE_CONTEXT:
-            # TODO: Handle this
+            logger.error("IDS registration has rejected the validation data.")
             raise IDSAuthenticationResponseError(REGISTER_KEY, status_code)
 
         case _:

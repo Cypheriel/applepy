@@ -86,10 +86,9 @@ def auth_user(
     :return: A tuple containing the user's profile ID and authentication token.
     """
     profile_id = getenv("PROFILE_ID")
-    auth_token = getenv("AUTH_TOKEN")
-    if profile_id and auth_token and not force:
-        logger.info("Using existing Apple ID credentials.")
-        return profile_id, auth_token
+    if AUTH_KEY_PATH.is_file() and AUTH_CERT_PATH.is_file() and profile_id and not force:
+        logger.info("Already device authenticated with IDS. Skipping user authentication...")
+        return profile_id, ""
 
     if force:
         logger.info("Forcing re-authentication for user.")

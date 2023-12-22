@@ -96,12 +96,17 @@ def register(  # noqa: PLR0913 - TODO: Refactor
 
     logger.info("Received validation data.")
 
+    operating_system = "Mac OS X" if ACTIVATION_INFO_PAYLOAD["DeviceClass"] == "MacOS" else "iOS"
+    build_version = "19H2026"
+    os_version = f"{operating_system},10.15.7,{build_version}"
+    product_type = ACTIVATION_INFO_PAYLOAD["ProductType"]
+
     data = {
         "language": "en-US",
         "device-name": f"{''.join(choices(ascii_lowercase, k=12))}'s Mac",
-        "hardware-version": ACTIVATION_INFO_PAYLOAD["ProductType"],
-        "os-version": ACTIVATION_INFO_PAYLOAD["ProductVersion"],
-        "software-version": ACTIVATION_INFO_PAYLOAD["BuildVersion"],
+        "hardware-version": product_type,
+        "os-version": os_version,
+        "software-version": build_version,
         "private-device-data": {
             "u": UUID(ACTIVATION_INFO_PAYLOAD["UniqueDeviceID"]).hex.upper(),
         },
@@ -154,6 +159,7 @@ def register(  # noqa: PLR0913 - TODO: Refactor
     payload = plistlib.dumps(data)
 
     headers = {
+        "User-Agent": f"com.apple.invitation-registration [Mac OS X,{os_version},{build_version},{product_type}]",
         "x-protocol-version": PROTOCOL_VERSION,
         "x-auth-user-id-0": profile_id,
         **generate_auth_headers(push_key, push_cert, auth_key, auth_cert, REGISTER_KEY, push_token, 0, payload=payload),

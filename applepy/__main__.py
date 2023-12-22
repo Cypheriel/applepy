@@ -98,9 +98,6 @@ def main(*_args: str, **_kwargs: str) -> int:
 
         time.sleep(0.1)
 
-    # Filter the APNs connection to only receive notifications for the Madrid topic.
-    apns.filter_topics(["com.apple.madrid"])
-
     # Authenticate with the user's Apple ID, obtaining their profile ID and authentication token.
     profile_id, auth_token = auth_user()
 
@@ -113,11 +110,15 @@ def main(*_args: str, **_kwargs: str) -> int:
     # Complete device registration using most collected credentials.
     registration_cert = register(profile_id, push_key, push_cert, auth_key, auth_cert, apns.push_token, handles)
 
+    # Filter the APNs connection to only receive notifications for the Madrid topic.
+    apns.filter_topics(["com.apple.madrid"])
+
     # Query the identities tied to a handle of the user's choice (or the own user if "self" is provided).
     logger.info("Please enter a handle to query. Examples: `mailto:foo@bar.com`, `tel:+12223334444`, `self`")
     handle_to_test = (
         handle if (handle := Prompt.ask("Enter handle to query:").strip().lower()) != "self" else handles[0]["uri"]
     )
+
     apns.query(handles[0]["uri"], [handle_to_test], auth_key, registration_cert)
 
     # Wait for the query response to be received.

@@ -94,7 +94,7 @@ def generate_id_headers(
     bag_key: str,
     push_token: bytes,
     payload: bytes | None = None,
-) -> dict[str, bytes]:
+) -> dict[str, str]:
     """Generate identification headers for some IDS requests."""
     nonce, sig = generate_signed_payload(
         private_key=auth_key,
@@ -103,8 +103,8 @@ def generate_id_headers(
         push_token=push_token,
     )
     return {
-        "x-id-sig": sig,
-        "x-id-nonce": nonce,
-        "x-id-cert": strip_pem(registration_cert),
-        "x-push-token": b64encode(push_token),
+        "x-id-sig": sig.decode(),
+        "x-id-nonce": nonce.decode(),
+        "x-id-cert": strip_pem(registration_cert).decode(),
+        "x-push-token": b64encode(push_token).decode(),
     }

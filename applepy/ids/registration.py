@@ -7,7 +7,7 @@ from typing import Final, Literal
 from uuid import UUID
 
 import requests
-from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.x509 import Certificate, load_der_x509_certificate
 from rich.pretty import pretty_repr
@@ -16,20 +16,17 @@ from applepy.albert import ACTIVATION_INFO_PAYLOAD
 from applepy.bags import ids_bag
 from applepy.crypto_helper import (
     choices,
+    construct_identity_key,
     create_private_key,
-    create_public_key,
     read_certificate,
     read_private_key,
-    read_public_key,
     save_certificate,
 )
 from applepy.ids import (
     ENCRYPTION_KEY_PATH,
-    ENCRYPTION_PUBLIC_KEY_PATH,
     PROTOCOL_VERSION,
     REGISTRATION_CERT_PATH,
     SIGNING_KEY_PATH,
-    SIGNING_PUBLIC_KEY_PATH,
 )
 from applepy.ids.auth import IDSAuthenticationResponseError
 from applepy.ids.payload import generate_auth_headers
@@ -43,33 +40,6 @@ VALIDATION_URL: Final = "https://validation-data.fly.dev/generate"
 logger = getLogger(__name__)
 
 
-def _create_identity_key() -> bytes:
-    encryption_key = read_private_key(ENCRYPTION_KEY_PATH) or create_private_key(ENCRYPTION_KEY_PATH, key_size=1280)
-    encryption_public_key = read_public_key(ENCRYPTION_PUBLIC_KEY_PATH) or create_public_key(
-        ENCRYPTION_PUBLIC_KEY_PATH,
-        encryption_key,
-    )
-
-    signing_key: ec.EllipticCurvePrivateKey = create_private_key(SIGNING_KEY_PATH, ec.EllipticCurvePrivateKey)
-    signing_public_key: ec.EllipticCurvePublicKey = read_public_key(
-        SIGNING_PUBLIC_KEY_PATH,
-        ec.EllipticCurvePublicKey,
-    ) or create_public_key(SIGNING_PUBLIC_KEY_PATH, signing_key)
-
-    result = b""
-    result += b"\x30\x81\xF6\x81\x43\x00\x41\x04"
-    result += signing_public_key.public_numbers().x.to_bytes(32, "big")
-    result += signing_public_key.public_numbers().y.to_bytes(32, "big")
-    result += b"\x82\x81\xAE"
-
-    # Raw RSA certificate
-    result += b"\x00\xAC\x30\x81\xA9\x02\x81\xA1"
-    result += encryption_public_key.public_numbers().n.to_bytes(161, "big")
-    result += b"\x02\x03\x01\x00\x01"
-
-    return result
-
-
 # noinspection SpellCheckingInspection
 def register(  # noqa: PLR0913 - TODO: Refactor
     profile_id: str,
@@ -81,9 +51,19 @@ def register(  # noqa: PLR0913 - TODO: Refactor
     handles: list[dict[Literal["uri"], str]],
 ) -> Certificate:
     """Attempt to register a device with Apple's Identity Services."""
-    if registration_certificate := read_certificate(REGISTRATION_CERT_PATH):
+    signing_key = read_private_key(SIGNING_KEY_PATH, EllipticCurvePrivateKey)
+    encryption_key = read_private_key(ENCRYPTION_KEY_PATH)
+    registration_certificate = read_certificate(REGISTRATION_CERT_PATH)
+
+    if all((signing_key, encryption_key, registration_certificate)):
         logger.info("Using existing registration certificate.")
         return registration_certificate
+
+    if any((signing_key, encryption_key, registration_certificate)):
+        logger.warning("Incomplete registration data detected, forcing re-registration...")
+
+    signing_key: EllipticCurvePrivateKey = signing_key or create_private_key(SIGNING_KEY_PATH, EllipticCurvePrivateKey)
+    encryption_key: RSAPrivateKey = encryption_key or create_private_key(ENCRYPTION_KEY_PATH)
 
     logger.info("Requesting validation data...")
 
@@ -100,6 +80,8 @@ def register(  # noqa: PLR0913 - TODO: Refactor
     build_version = "19H2026"
     os_version = f"{operating_system},10.15.7,{build_version}"
     product_type = ACTIVATION_INFO_PAYLOAD["ProductType"]
+
+    identity_key = construct_identity_key(signing_key.public_key(), encryption_key.public_key())
 
     data = {
         "language": "en-US",
@@ -125,7 +107,7 @@ def register(  # noqa: PLR0913 - TODO: Refactor
                         "client-data": {
                             "is-c2k-equipment": True,
                             "optionally-receive-typing-indicators": True,
-                            "public-message-identity-key": _create_identity_key(),
+                            "public-message-identity-key": identity_key,
                             "public-message-identity-version": 2,
                             "show-peer-errors": True,
                             "supports-ack-v1": True,

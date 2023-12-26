@@ -1,7 +1,7 @@
 """Helper functions for cryptography-related tasks."""
 import re
 from datetime import datetime, timedelta
-from functools import partial
+from functools import lru_cache, partial
 from importlib.abc import Traversable
 from logging import getLogger
 from random import SystemRandom
@@ -14,6 +14,7 @@ from cryptography.hazmat.primitives.serialization import (
     NoEncryption,
     PrivateFormat,
     PublicFormat,
+    load_der_public_key,
     load_pem_private_key,
     load_pem_public_key,
 )
@@ -80,6 +81,9 @@ def create_private_key(
         case _:
             raise TypeError(f"Unknown key type {key_type}")
 
+    if not isinstance(private_key, key_type):
+        raise TypeError(f"Failed to create private key. Expected {key_type}, got {type(private_key)}.")
+
     with path.open(mode="wb") as f:
         f.write(
             private_key.private_bytes(
@@ -88,6 +92,8 @@ def create_private_key(
                 encryption_algorithm=NoEncryption(),
             ),
         )
+
+    logger.debug(f"Created a new {key_type.__name__} private key: {path.name}")
 
     return private_key
 
@@ -172,7 +178,12 @@ def read_public_key(
     if key_type not in (rsa.RSAPublicKey, ec.EllipticCurvePublicKey):
         raise TypeError(f"Unsupported key type {key_type}")
 
-    return _read_with_transform(path, partial(load_pem_public_key))
+    result = _read_with_transform(path, load_pem_public_key)
+
+    if result and not isinstance(result, key_type):
+        raise TypeError(f"Failed to read public key. Expected {key_type}, got {type(result)}.")
+
+    return result
 
 
 def save_public_key(path: Traversable, private_key: rsa.RSAPublicKey | ec.EllipticCurvePublicKey) -> None:
@@ -208,7 +219,10 @@ def read_csr(path: Traversable) -> CertificateSigningRequest | None:
     return _read_with_transform(path, load_pem_x509_csr)
 
 
-def strip_pem(pem: Certificate | RSAPrivateKey | bytes | str, remove_newline: bool = True) -> bytes:
+def strip_pem(
+    pem: Certificate | rsa.RSAPrivateKey | ec.EllipticCurvePrivateKey | bytes | str,
+    remove_newline: bool = True,
+) -> bytes:
     """Strip a PEM of its header and footer, as well as optionally removing any newlines."""
     match pem:
         case RSAPrivateKey():
@@ -227,3 +241,37 @@ def strip_pem(pem: Certificate | RSAPrivateKey | bytes | str, remove_newline: bo
     if remove_newline is True:
         result = result.replace(b"\n", b"")
     return result
+
+
+@lru_cache
+def extract_public_keys(data: bytes) -> tuple[ec.EllipticCurvePublicKey, rsa.RSAPublicKey]:
+    """Extract the public signing and encryption keys from the public message identity key."""
+    # NOTE: This is a bit of a hack. I have no idea if there's a more "proper" way to do this.
+    return (
+        ec.EllipticCurvePublicKey.from_encoded_point(
+            ec.SECP256R1(),
+            data[7:72],
+        ),
+        load_der_public_key(
+            data[77:],
+        ),
+    )
+
+
+def construct_identity_key(
+    public_signing_key: ec.EllipticCurvePublicKey,
+    public_encryption_key: rsa.RSAPublicKey,
+) -> bytes:
+    """Reconstruct the public message identity key from the public signing and encryption keys."""
+    if isinstance(public_signing_key, ec.EllipticCurvePublicKey) is False:
+        raise TypeError(f"Expected EllipticCurvePublicKey, got {type(public_signing_key)}.")
+
+    if isinstance(public_encryption_key, rsa.RSAPublicKey) is False:
+        raise TypeError(f"Expected RSAPublicKey, got {type(public_encryption_key)}.")
+
+    return (
+        b"\x30\x81\xF6\x81\x43\x00\x41"
+        + public_signing_key.public_bytes(Encoding.X962, PublicFormat.CompressedPoint)
+        + b"\x82\x81\xAE\x00\xAC"
+        + public_encryption_key.public_bytes(Encoding.DER, PublicFormat.PKCS1)
+    )

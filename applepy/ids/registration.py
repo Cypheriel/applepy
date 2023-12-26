@@ -150,6 +150,7 @@ def register(  # noqa: PLR0913 - TODO: Refactor
     logger.debug(f"Sending request to {REGISTER_URL} via v{PROTOCOL_VERSION}.")
     logger.debug(f"Headers: {pretty_repr(headers)}")
     logger.debug(f"Payload (pre-plist): {pretty_repr(data)}")
+    logger.debug(f"Payload (plist): {pretty_repr(payload)}")
 
     response = requests.post(
         REGISTER_URL,

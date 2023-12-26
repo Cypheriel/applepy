@@ -9,11 +9,7 @@ from cryptography.hazmat.primitives.hashes import SHA1
 from cryptography.x509 import Certificate
 
 from applepy.crypto_helper import strip_pem
-
-
-def to_length_value(data: bytes, length: int = 4) -> bytes:
-    """Prepend the length of the data to the data."""
-    return len(data).to_bytes(length, "big") + data
+from applepy.utilities import to_length_value
 
 
 def _generate_payload(

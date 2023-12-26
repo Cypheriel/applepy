@@ -82,7 +82,10 @@ def to_time_from_now(data: bytes) -> datetime:
 def extract_payload(data: bytes) -> dict | None:
     """Extract the payload from a PUSH_NOTIFICATION item."""
     plist = plistlib.loads(data)
-    return plistlib.loads(gzip.decompress(plist["b"]))
+    if body := plist.get("b"):
+        return plistlib.loads(gzip.decompress(body))
+
+    return plist
 
 
 def b64encode_push_token(data: bytes) -> str:

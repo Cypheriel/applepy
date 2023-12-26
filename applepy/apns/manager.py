@@ -288,7 +288,7 @@ class APNSManager:
     def query(
         self: "APNSManager",
         handle: str,
-        uris: list[str],
+        data: dict | list,
         auth_key: RSAPrivateKey,
         registration_cert: Certificate,
     ) -> int:
@@ -296,14 +296,11 @@ class APNSManager:
         Send an APNs participant handle query.
 
         :param handle: The handle to send the query from.
-        :param uris: The URIs to query.
+        :param data: The data of the query's body.
         :param auth_key: The private key used to sign the request.
         :param registration_cert: The certificate sent through the request.
         :return: The message ID of the request.
         """
-        logger.info(f"Querying for {uris}...")
-        data = {"uris": uris}
-
         payload = plistlib.dumps(data)
         compressed_payload = gzip.compress(payload, mtime=0)  # TODO: Figure out if mtime=0 is necessary
 

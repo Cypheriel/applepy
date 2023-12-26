@@ -202,7 +202,7 @@ class APNSManager:
         first_run = True
         while True:
             elapsed_time = time.time() - start_time
-            if first_run or elapsed_time >= KEEP_ALIVE_INTERVAL:
+            if (first_run and self.connected) or elapsed_time >= KEEP_ALIVE_INTERVAL:
                 first_run = False
                 self.send_keepalive()
                 start_time = time.time()

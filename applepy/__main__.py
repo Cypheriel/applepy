@@ -114,12 +114,21 @@ def main(*_args: str, **_kwargs: str) -> int:
     apns.filter_topics(["com.apple.madrid"])
 
     # Query the identities tied to a handle of the user's choice (or the own user if "self" is provided).
-    logger.info("Please enter a handle to query. Examples: `mailto:foo@bar.com`, `tel:+12223334444`, `self`")
-    handle_to_test = (
-        handle if (handle := Prompt.ask("Enter handle to query:").strip().lower()) != "self" else handles[0]["uri"]
-    )
+    logger.info("Please enter a handle to query. Examples: mailto:foo@bar.com, tel:+12223334444, self")
 
-    apns.query(handles[0]["uri"], [handle_to_test], auth_key, registration_cert)
+    handle = Prompt.ask("Enter handle to query").strip().lower()
+    if handle == "self":
+        handle = handles[0]["uri"]
+
+    apns.query(handles[0]["uri"], [handle], auth_key, registration_cert)
+
+    # Wait for the query response to be received.
+    query_response = apns.push_notifications.get(timeout=15)
+
+    query_status = StatusCode(query_response.get_item_by_alias("PAYLOAD").value.get("status", -1))
+    if query_status != StatusCode.SUCCESS:
+        logger.error(f"Query failed with status code: {query_status}")
+        return 1
 
     # Wait for the query response to be received.
     query_response = apns.push_notifications.get(timeout=15)

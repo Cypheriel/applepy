@@ -8,7 +8,6 @@ from random import SystemRandom
 from typing import Callable, Type, TypeVar, overload
 
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives.serialization import (
     Encoding,
     NoEncryption,
@@ -225,7 +224,7 @@ def strip_pem(
 ) -> bytes:
     """Strip a PEM of its header and footer, as well as optionally removing any newlines."""
     match pem:
-        case RSAPrivateKey():
+        case rsa.RSAPrivateKey() | ec.EllipticCurvePrivateKey():
             pem_str = pem.private_bytes(Encoding.PEM, PrivateFormat.TraditionalOpenSSL, NoEncryption())
         case Certificate():
             pem_str = pem.public_bytes(Encoding.PEM)

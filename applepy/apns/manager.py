@@ -142,14 +142,15 @@ class APNSManager:
             ],
         ).write(self.courier_stream)
 
-    def send_notification(self: "APNSManager", payload: bytes) -> int:
+    def send_notification(self: "APNSManager", payload: bytes, message_id: int | None = None) -> int:
         """
         Send a push notification over the APNs.
 
         :param payload: The payload to send.
+        :param message_id: The optional message ID to use.
         :return: The message ID of the notification that was sent.
         """
-        message_id = randbytes(4)
+        message_id = message_id.to_bytes(4, "big") if message_id else randbytes(4)
 
         APNSCommand(
             command_id=get_command("PUSH_NOTIFICATION"),

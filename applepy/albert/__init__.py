@@ -51,6 +51,8 @@ PUSH_KEY_PATH: Final = CRYPTO_ASSETS_DIR / "push.key"
 PUSH_CSR_PATH: Final = CRYPTO_ASSETS_DIR / "push.csr"
 PUSH_CERTIFICATE_PATH: Final = CRYPTO_ASSETS_DIR / "push.crt"
 
+UID: Final = str(uuid4())
+
 logger = getLogger(__name__)
 
 if not FAIRPLAY_PRIVATE_KEY_PATH.is_file():
@@ -86,7 +88,7 @@ def _generate_device_csr(private_key: RSAPrivateKey) -> CertificateSigningReques
                 x509.NameAttribute(NameOID.LOCALITY_NAME, "Cupertino"),
                 x509.NameAttribute(NameOID.ORGANIZATION_NAME, "Apple Inc."),
                 x509.NameAttribute(NameOID.ORGANIZATIONAL_UNIT_NAME, "iPhone"),
-                x509.NameAttribute(NameOID.COMMON_NAME, str(uuid4())),
+                x509.NameAttribute(NameOID.COMMON_NAME, UID),
             ],
         ),
     ).sign(private_key, SHA256())
@@ -96,7 +98,6 @@ def _generate_device_csr(private_key: RSAPrivateKey) -> CertificateSigningReques
     return csr
 
 
-UID: Final = str(uuid4())
 ACTIVATION_URL: Final = "https://albert.apple.com/deviceservices/deviceActivation?device=MacOS"
 PRIVATE_KEY: Final = read_private_key(PUSH_KEY_PATH) or create_private_key(PUSH_KEY_PATH)
 CSR: Final = read_csr(PUSH_CSR_PATH) or _generate_device_csr(PRIVATE_KEY)

@@ -74,7 +74,12 @@ def to_timedelta(data: bytes) -> timedelta:
     return timedelta(milliseconds=big_endian(data))
 
 
-def extract_payload(data: bytes) -> dict:
+def to_time_from_now(data: bytes) -> datetime:
+    """Convert a byte string to a datetime object representing a time from now."""
+    return datetime.now() + to_timedelta(data)
+
+
+def extract_payload(data: bytes) -> dict | None:
     """Extract the payload from a PUSH_NOTIFICATION item."""
     plist = plistlib.loads(data)
     return plistlib.loads(gzip.decompress(plist["b"]))
@@ -176,7 +181,7 @@ MAP: dict[int, MessageMap] = {
             0x02: Identifier("TOPIC/PUSH_TOKEN", reveal_token_or_topic_hash),
             0x03: Identifier("PAYLOAD", extract_payload),
             0x04: Identifier("MESSAGE_ID", big_endian),
-            0x05: Identifier("EXPIRATION_DATE", to_datetime_ms),
+            0x05: Identifier("EXPIRATION_DATE", to_time_from_now),
             0x06: Identifier("MESSAGE_TIME", to_datetime_ns),
             # 0x07
             0x09: Identifier("STORAGE_FLAGS", to_binary_repr),  # Requires verification

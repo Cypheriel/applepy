@@ -275,7 +275,9 @@ class APNSManager:
             if command_id != get_command("PUSH_NOTIFICATION"):
                 continue
 
-            message_id = command.get_item_by_alias("MESSAGE_ID")
+            payload = command.get_item_by_alias("PAYLOAD")
+            logger.debug(f"Payload: {pretty_repr(plistlib.loads(payload.data))}")
+            message_id = int.from_bytes(plistlib.loads(payload.data).get("U", b"\x00"), "big")
 
             if not message_id or message_id != target_message_id:
                 self.push_notifications.put(command)
@@ -291,7 +293,7 @@ class APNSManager:
         data: dict | list,
         auth_key: RSAPrivateKey,
         registration_cert: Certificate,
-    ) -> int:
+    ) -> APNSCommand:
         """
         Send an APNs participant handle query.
 
@@ -312,13 +314,15 @@ class APNSManager:
 
         request = {
             "cT": "application/x-apple-plist",
-            "U": randbytes(16),
+            "U": (message_id := randbytes(16)),
             "c": 96,
             "u": QUERY_URL,
             "h": headers,
             "v": 2,
             "b": compressed_payload,
         }
+
+        binary_plist = plistlib.dumps(request, fmt=plistlib.FMT_BINARY)
 
         logger.debug(f"Headers: {pretty_repr(headers)}")
         logger.debug(f"Payload (pre-plist): {pretty_repr(data)}")
@@ -327,4 +331,5 @@ class APNSManager:
         logger.debug(f"As plist: {plistlib.dumps(request)}")
         logger.debug(f"As bplist: {pretty_repr(plistlib.dumps(request, fmt=plistlib.FMT_BINARY))}")
 
-        return self.send_notification(plistlib.dumps(request, fmt=plistlib.FMT_BINARY))
+        self.send_notification(binary_plist)
+        return self.wait_for_message(int.from_bytes(message_id, "big"))

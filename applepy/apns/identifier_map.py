@@ -166,7 +166,6 @@ MAP: dict[int, MessageMap] = {
             0x0C: Identifier("UNKNOWN_TIMESTAMP", to_datetime_ms),  # Requires verification
         },
     },
-    # TODO: Map topics to their SHA1 hashes
     0x09: {
         "name": "PUSH_TOPICS",
         "items": {
